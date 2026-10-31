@@ -1,11 +1,10 @@
-"""
-Kinematic Model in a 2D space
+"""Kinematic Model in a 2D space.
 
--------------------------------------------------------------
-This module contains the Robot class in order to simulate a moving robot on space (x,y,theta).
-Using Euler method (Forward Euler Integration), robot's state gets updated in discrete time steps (dt)
-based on current linear (v) and angular (omega) speed. 
-It contains strict error handling mechanisms to avoid non-finite values (NaN/Inf) and negative dt ensuinrg stability during the simulation.
+This module provides the Robot class designed to simulate a moving robot on a
+two-dimensional plane (x, y, theta). Using the Forward Euler Integration method,
+the robot's state updates over discrete time steps based on linear and angular
+velocities. The module features robust type and value verification blocks to
+mitigate non-finite inputs or unstable simulation clocks.
 """
 import math
 #utility function
@@ -23,12 +22,8 @@ def angle_wrap(a)->float:
         float: The wrapped angle bounded within [-pi, pi].
 
     Raises:
-           ValueError: 
-                      if angle is not a finite number
-
-           TypeError:
-                     if angle is not a float or int
-                     if angle is boolean
+        TypeError: If the angle is a boolean or not a numeric type (int, float).
+        ValueError: If the angle value is not a finite number.
     """
 
     if  isinstance(a,bool):
@@ -42,14 +37,18 @@ def angle_wrap(a)->float:
     return (a +math.pi) %(2 * math.pi) - math.pi
 
 class Robot:
+    """Represents a mobile robot moving in a 2D kinematic plane."""
     def __init__(self,x,y,theta,linear_velocity,angular_velocity):
         """
-        Args: 
-            x-> position on X axis (float)
-            y -> position on Y axis (float)
-            theta -> radians
-            linear_velocity-> numerical value
-            angular_velocity -> numerical value
+        Initializes the Robot with states and velocities.
+        Args:
+            x (int | float): Initial position on the X-axis.
+            y (int | float): Initial position on the Y-axis.
+            theta (int | float): Heading orientation angle in radians.
+            linear_velocity (int | float): Initial forward linear speed.
+            angular_velocity (int | float): Initial steering angular speed.
+
+        Uses _validate_init_args method to validate initialization arguments
 
         
         """
@@ -64,14 +63,21 @@ class Robot:
 
     def _validate_init_args(self,x,y,theta,linear_velocity,angular_velocity):
         """
-         Validate constructor's arguments
+        Validates constructor properties against incorrect types or non-finite values.
 
-          Args:
-                x -> float/int
-                y-> float/int
-                theta -> radians
-                linear_velocity -> numerical value
-                angular_velocity -> numerican value
+        Maps state arguments inside a validation loop to verify safe parameters
+        before configuring active object states.
+
+        Args:
+            x (int | float): Position coordinate on the X-axis.
+            y (int | float): Position coordinate on the Y-axis.
+            theta (int | float): Heading orientation angle in radians.
+            linear_velocity (int | float): Forward linear speed.
+            angular_velocity (int | float): Steering angular speed.
+
+        Raises:
+            TypeError: If any parameter is a boolean or not a valid number.
+            ValueError: If any parameter represents an infinite value or NaN.
         """
 
         variables_to_check = {
@@ -90,6 +96,47 @@ class Robot:
             
             elif not math.isfinite(value):
                 raise ValueError(f'{name} must be a finite number')
-            
-            
 
+    def step(self,dt)-> tuple[float]:
+        """
+        Propagates the robot state forward by a discrete time step.
+
+        Uses Forward Euler Integration along the active velocity vector fields 
+        to track spatial mutations across simulated time frame segments.
+
+        Args:
+            dt (int | float): Delta time segment duration (must be > 0).
+
+        Returns:
+            tuple[float, float, float]: The updated state profile (x, y, theta).
+
+        Raises:
+            TypeError: If the time step is a boolean or missing a numeric type.
+            ValueError: If the time step is non-finite, negative, or zero.
+        """
+        
+        #raise an error if dt is a boolean
+        if isinstance(dt,bool):
+            raise TypeError('dt cannot be a boolean')
+        elif not isinstance(dt,(int,float)):
+            raise TypeError('dt must be a float or integer')
+        elif not math.isfinite(dt):
+            raise ValueError('dt must be a finite number')
+
+        elif dt <= 0:
+           raise ValueError('dt must be greater than zero')
+
+        #calcuate robot's new position
+        x_new_pos = self.x + self.linear_velocity * math.cos(self.theta) * dt
+        y_new_pos = self.y + self.linear_velocity * math.sin(self.theta) * dt
+
+        
+        new_theta = angle_wrap(self.theta + self.angular_velocity * dt )
+
+        #update x,y,theta
+        self.x = x_new_pos
+        self.y = y_new_pos
+        self.theta = new_theta
+
+        return (self.x,self.y,self.theta)
+                        
