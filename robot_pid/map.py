@@ -101,22 +101,23 @@ class Map:
 
     def cell_to_world(self,row,col)-> tuple[float,float]:
         """
-          Convert a cell into x,y coordinates so the robot can understand its position.
+        Converts a cell index into world x, y coordinates.
 
-          Args:
-               rows -> int
-               cols -> int
+        Calculates the physical metric coordinates of the center of a specific
+        grid cell based on the map's cell size.
 
-          Returns:
-                   coordinates -> tuple[float]
+        Args:
+            row (int): The row index of the cell in the grid map.
+            col (int): The column index of the cell in the grid map.
 
-         Raises:
-                 TypeError:
-                           if row or col is boolean
-                 ValueError:
-                           if cell is outside grid bounds          
+        Returns:
+            tuple[float, float]: A tuple containing the (x, y) world coordinates.
 
+        Raises:
+            TypeError: If row or col is a boolean or not an integer.
+            ValueError: If the cell index is outside the grid map boundaries.
         """
+        
 
         #validate that row and col are float numbers
         if isinstance(row,bool) or isinstance(col,bool):
@@ -133,6 +134,45 @@ class Map:
         y = (self.rows - row - 0.5) * self.cell_size
 
         return x,y
+
+
+    def world_to_cell(self,x,y)-> tuple[int]:
+         """
+         Converts world x, y coordinates into grid cell coordinates.
+
+        Identifies which discrete grid cell contains the continuous continuous 
+        world point to help verify the robot's state and proximity to obstacles.
+
+        Args:
+            x (int | float): The continuous x coordinate in the world space.
+            y (int | float): The continuous y coordinate in the world space.
+
+        Returns:
+            tuple[int, int]: A tuple containing the (row, col) cell indices.
+
+        Raises:
+            TypeError: If x or y is a boolean, or not a float/integer.
+            ValueError: If x or y is a non-finite number.
+         """
+         world_coordinates = [('x', x), ('y', y)]
+         #raise an error if x or y are booleans
+         for name,value in enumerate(world_coordinates):
+              if isinstance(value,bool):
+                   raise TypeError(f'{value} cannot be a boolean')
+              elif not isinstance(value,(float,int)):
+                   raise TypeError(f'{name} must be a float or integer')
+              elif not math.isfinite(value):
+                   raise ValueError(f'{name} must be a finite number')
+              
+      
+         #convert x,y into cell. use math.floor() to round the result into the smaller closer value
+         _col = x/self.cell_size
+         col = math.floor(_col)
+         row = self.rows - 1 - math.floor(y / self.cell_size)
+
+         cell = col,row
+         return cell
+         
 
 
 
