@@ -1,6 +1,9 @@
 """
+2D Grid Map Representation Module.
 
-
+This module provides the Map class used to parse, store, and validate a grid-based 
+occupancy environment. It defines obstacle and free space properties to assist 
+robotic path planning and localization scripts across discrete grid spaces.
 """
 import math
 class Map:
@@ -94,4 +97,47 @@ class Map:
                         raise TypeError('Columns must be composed of integers')
                     elif not (0 <= col <= 1):
                         raise ValueError('Columns must contain values in range of 0-1')
+
+
+    def cell_to_world(self,row,col)-> tuple[float,float]:
+        """
+          Convert a cell into x,y coordinates so the robot can understand its position.
+
+          Args:
+               rows -> int
+               cols -> int
+
+          Returns:
+                   coordinates -> tuple[float]
+
+         Raises:
+                 TypeError:
+                           if row or col is boolean
+                 ValueError:
+                           if cell is outside grid bounds          
+
+        """
+
+        #validate that row and col are float numbers
+        if isinstance(row,bool) or isinstance(col,bool):
+                    raise TypeError('row and col cannot be booleans')
+        elif not isinstance(row,int) or not isinstance(col,int):
+            raise TypeError('row and col must be integer numbers')
+
+        #validate that cell is inside boundaries
+        if not (0 <= row < self.rows) or not (0 <= col < self.cols):
+             raise ValueError('Cell is out of boundaries')
+
+        #compute world coordinate. use 0.5 to return cell's center
+        x = (col +0.5) * self.cell_size
+        y = (self.rows - row - 0.5) * self.cell_size
+
+        return x,y
+
+
+
+
+        
+
+
             
