@@ -179,6 +179,49 @@ class Map:
 
          cell = (row,col)
          return cell
+
+
+    def _is_free_cell(self,cell)-> bool:
+         """
+         Checks if a specific grid cell is free (obstacle-free) for the robot.
+
+        Args:
+            cell (tuple[int, int]): A tuple containing the (row, col) indices.
+
+        Returns:
+            bool: True if the cell is free (contains 0), False if it is occupied (contains 1).
+
+        Raises:
+            TypeError: If the cell is a boolean, not a tuple, not exactly 
+                2 elements, or if its elements are not integers.
+            ValueError: If the cell indices are out of the grid boundaries.
+        """
+
+         #validate whether cell is a valid tuple or not
+         if isinstance(cell,bool):
+              raise TypeError('Cell cannot be a boolean')
+         elif not isinstance(cell, tuple) or len(cell) != 2:
+              raise TypeError('Cell must be a tuple[int,int]')
+
+         #unpack tuple to see if they are inside boundaries of the grid
+         row,col = cell
+         
+         if isinstance(row, bool) or isinstance(col, bool):
+            raise TypeError('Cell elements cannot be booleans')
+         elif not isinstance(row, int) or not isinstance(col, int):
+            raise TypeError('Cell elements must be integers')
+
+         #raise value error if row or col are outside of map's boundaries
+         if not (0 <= row < self.rows and 0 <= col < self.cols):
+              raise ValueError(f"row and col are out of map's boundaries.{row},{col}")
+
+
+         return self.grid_map[row][col] == 0
+
+
+
+
+
          
 
 
