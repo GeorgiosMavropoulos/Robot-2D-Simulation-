@@ -20,3 +20,12 @@ initialization and runtime.
 Initialize: PID(kp,ki,kd,output_limits)
 
 
+Robot Class:
+Provides the Robot class designed to simulate a moving robot on a
+two-dimensional plane (x, y, theta). Using the Forward Euler Integration method,
+the robot's state updates over discrete time steps based on linear and angular
+velocities. The module features robust type and value verification blocks to
+mitigate non-finite inputs or unstable simulation clocks.
+Initialize: Robot(x,y,theta,linear_velocity,angular_velocity)
+
+
