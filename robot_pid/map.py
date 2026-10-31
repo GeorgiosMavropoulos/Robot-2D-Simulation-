@@ -152,8 +152,10 @@ class Map:
 
         Raises:
             TypeError: If x or y is a boolean, or not a float/integer.
-            ValueError: If x or y is a non-finite number.
+            ValueError: If x or y is a non-finite number
+                        If x or y are out of grid's boundaries
          """
+
          world_coordinates = [('x', x), ('y', y)]
          #raise an error if x or y are booleans
          for name,value in enumerate(world_coordinates):
@@ -163,14 +165,19 @@ class Map:
                    raise TypeError(f'{name} must be a float or integer')
               elif not math.isfinite(value):
                    raise ValueError(f'{name} must be a finite number')
-              
+         
+         
+         #raise ValueError if x or y are out of map's boundaries
+         if ( x < 0 or y < 0) or (x >= self.cols * self.cell_size or y >= self.rows*self.cell_size):
+              raise ValueError(f"x or y are out of map's boundaries.{x},{y}")
+
       
          #convert x,y into cell. use math.floor() to round the result into the smaller closer value
-         _col = x/self.cell_size
-         col = math.floor(_col)
+         
+         col = math.floor(x/self.cell_size)
          row = self.rows - 1 - math.floor(y / self.cell_size)
 
-         cell = col,row
+         cell = (row,col)
          return cell
          
 
