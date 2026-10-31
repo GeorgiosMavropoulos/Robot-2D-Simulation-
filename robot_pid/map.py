@@ -57,14 +57,15 @@ class Map:
         """        
 
         #validate cell_size
-        if not isinstance(cell_size,(int,float)):
+        if isinstance(cell_size,bool):
+              raise TypeError('cell_size cannot be a boolean')
+        elif not isinstance(cell_size,(int,float)):
             raise TypeError('cell_size must be an integer or a float')
-        elif isinstance(cell_size,bool):
-            raise TypeError('cell_size cannot be a boolean')
+       
         elif cell_size <=0:
             raise ValueError('cell_size must be greater than zero')
         elif not math.isfinite(cell_size):
-            raise TypeError('cell_size must be a finite number')
+            raise ValueError('cell_size must be a finite number')
 
         if not isinstance(grid_map,list):
             raise TypeError('grid_map must be a list')
@@ -97,6 +98,24 @@ class Map:
                         raise TypeError('Columns must be composed of integers')
                     elif not (0 <= col <= 1):
                         raise ValueError('Columns must contain values in range of 0-1')
+
+    
+    def _is_inbound(self,row,col)->bool:
+        """
+           Return Falseif row and col are out of map's boundaries, otherwise True
+
+           Args:
+                row (int): The row index of the cell in the grid map.
+                col (int): The column index of the cell in the grid map.
+
+           Return:
+                   True if row,col are inside the grid
+                   Otherwise False
+        """
+        
+        #return True if row and col are outside the map
+        return  (0 <= row < self.rows and 0 <= col < self.cols)
+          
 
 
     def cell_to_world(self,row,col)-> tuple[float,float]:
@@ -136,12 +155,12 @@ class Map:
         return x,y
 
 
-    def world_to_cell(self,x,y)-> tuple[int]:
+    def world_to_cell(self,x,y)-> tuple[int,int]:
          """
          Converts world x, y coordinates into grid cell coordinates.
 
-        Identifies which discrete grid cell contains the continuous continuous 
-        world point to help verify the robot's state and proximity to obstacles.
+        Identifies which discrete grid cell contains the continuous world 
+        point to help verify the robot's state and proximity to obstacles.
 
         Args:
             x (int | float): The continuous x coordinate in the world space.
@@ -152,32 +171,29 @@ class Map:
 
         Raises:
             TypeError: If x or y is a boolean, or not a float/integer.
-            ValueError: If x or y is a non-finite number
-                        If x or y are out of grid's boundaries
+            ValueError: If x or y is a non-finite number.
          """
-
          world_coordinates = [('x', x), ('y', y)]
          #raise an error if x or y are booleans
-         for name,value in enumerate(world_coordinates):
+         for name,value in world_coordinates:
               if isinstance(value,bool):
                    raise TypeError(f'{value} cannot be a boolean')
               elif not isinstance(value,(float,int)):
                    raise TypeError(f'{name} must be a float or integer')
               elif not math.isfinite(value):
                    raise ValueError(f'{name} must be a finite number')
-         
-         
-         #raise ValueError if x or y are out of map's boundaries
-         if ( x < 0 or y < 0) or (x >= self.cols * self.cell_size or y >= self.rows*self.cell_size):
-              raise ValueError(f"x or y are out of map's boundaries.{x},{y}")
-
+              
       
          #convert x,y into cell. use math.floor() to round the result into the smaller closer value
-         
-         col = math.floor(x/self.cell_size)
+         _col = x/self.cell_size
+         col = math.floor(_col)
          row = self.rows - 1 - math.floor(y / self.cell_size)
 
-         cell = (row,col)
+         #raise an error if cell it out of boundaries
+         if not self._is_inbound(row,col):
+                       raise ValueError('Cell is out of boundaries')
+         cell = row,col
+       
          return cell
 
 
@@ -212,16 +228,87 @@ class Map:
             raise TypeError('Cell elements must be integers')
 
          #raise value error if row or col are outside of map's boundaries
-         if not (0 <= row < self.rows and 0 <= col < self.cols):
-              raise ValueError(f"row and col are out of map's boundaries.{row},{col}")
+         if not self._is_inbound(row,col):
+              raise ValueError('row and col must be inside the grid')
 
 
          return self.grid_map[row][col] == 0
+   
 
 
 
+    def neighbors(self,cell) -> list[tuple]:
+            """Return the free 4-connected neighbours of a cell.
+    
+            Neighbours are checked in the order right, left, down, up
+            (row +1 is down, row -1 is up).
+    
+            Args:
+                cell (tuple): (row, col) indices.
+    
+            Returns:
+                list[tuple]: (row, col) of every free neighbour; cells outside
+                the map or holding an obstacle are left out.
+    
+            Raises:
+                TypeError: If cell is not a pair of integers.
+            """
+    
+            #raise a type error if cell is not a tuple with 2 values
+            if not isinstance(cell, tuple) or len(cell) != 2:
+              raise TypeError('Cell must be a tuple[int,int]')
+
+           
+            
+    
+            #unpack cell to row and col
+            row,col = cell
+            #validate row and col are integers and not booleans
+            if isinstance(row,bool) or isinstance(col,bool):
+                 raise TypeError('row and col cannot be booleans')
+            
+            elif not isinstance(row,int) or not isinstance(col,int):
+                 raise TypeError('row and col must be valid integers')
+            
+        
+            elif not self._is_inbound(row,col):
+                      raise ValueError('Cell is outside of boundaries')
+    
+            #create a list to store the valid blocks the algorithm will find
+            neighbors = [] 
+    
+            #the following list holds the direction's key. each pair represents a move. 
+            # (0, 1)->right (same row next column), 
+            # (0,-1)->left(same row, previous column),
+            ## (1, 0)->(next row, same column), (-1,0)->(previous row, same column)
+            directions = [(0, 1), (0, -1), (1, 0), (-1, 0)] 
+
+    
+            #loop through the list and for each direction create the neighbor cell adding the change in the row and col
+            for direction in directions:
+                r,c = row + direction[0], col + direction[1]
+
+                #raise an error if row,col are outside the grid
+                if self._is_inbound(r,c):                     
+                 #if method is free accepts the cell add it to the list (neighbors)
+                 if self._is_free_cell((r, c)):
+                    #append the coordinates to the list
+                    neighbors.append((r, c)) 
+    
+            return neighbors
 
 
+
+grid = [
+    [0, 0, 1],
+    [0, 0, 0],
+    [1, 0, 0]
+]
+
+m = Map(grid)
+
+print(m.neighbors((1, 1)))
+print(m.neighbors((0, 0)))
          
 
 
