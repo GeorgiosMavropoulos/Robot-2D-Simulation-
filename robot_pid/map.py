@@ -1,0 +1,97 @@
+"""
+
+
+"""
+import math
+class Map:
+    """Represents a 2D occupancy grid environment for motion planning."""
+    def __init__(self,grid_map,cell_size=0.5):
+        """
+        Initializes the occupancy grid map with safe dimensions.
+
+        Passes parameters directly into the internal  method 
+        _validate_init_args to ensure grid stability before allocating active 
+        state memory and properties.       
+
+        Args:
+            grid_map (list[list[int]]): A two-dimensional nested list containing 
+                integers where 0 represents free space and 1 represents an obstacle.
+            cell_size (int | float, optional): The physical metric dimension of a 
+                single grid cell edge. Defaults to 0.5.
+        """
+        
+        #valid initialization arguments
+        self._validate_init_args(grid_map,cell_size)
+
+        self.grid_map = grid_map
+        self.cell_size = cell_size
+        #create rows and cols
+        self.rows = len(grid_map)
+        self.cols = len(grid_map[0])
+
+
+
+    def _validate_init_args(self,grid_map,cell_size):
+        """
+        Validates structural types, sizing dimensions, and elements inside the grid map.
+
+        Checks both the environmental resolution scale and the multi-dimensional 
+        matrix to enforce rectangular dimensions, eliminate empty structural 
+        definitions, and ensure internal cell indices consist solely of literal 
+        integer binary flags (0 and 1).
+
+        Args:
+            grid_map (list[list[int]]): The multi-dimensional nested array under 
+                structural verification.
+            cell_size (int | float): The physical metric dimension of a single cell.
+
+        Raises:
+            TypeError: If cell_size is a boolean, not a number, or if grid_map is not 
+                a list, its rows are not lists, or its cell values are booleans/non-integers.
+            ValueError: If cell_size is non-finite, negative, or zero; or if grid_map 
+                is empty, any nested row is empty, row dimensions vary, or cells contain 
+                values other than 0 or 1.
+        """        
+
+        #validate cell_size
+        if not isinstance(cell_size,(int,float)):
+            raise TypeError('cell_size must be an integer or a float')
+        elif isinstance(cell_size,bool):
+            raise TypeError('cell_size cannot be a boolean')
+        elif cell_size <=0:
+            raise ValueError('cell_size must be greater than zero')
+        elif not math.isfinite(cell_size):
+            raise TypeError('cell_size must be a finite number')
+
+        if not isinstance(grid_map,list):
+            raise TypeError('grid_map must be a list')
+        elif not grid_map:
+            raise ValueError('grid_map cannot be empty')
+
+        expected_cols = None
+
+        #validate that grid map contains a nested list an all items are integers
+        for row in grid_map:
+            if not isinstance(row,list):
+                raise TypeError('grid_map items must be lists')
+          
+            elif not row:
+                raise ValueError('Grid rows cannot be empty')
+            
+            
+            #compare row's length with col's expected_cols 
+            if expected_cols is None:             
+                expected_cols = len(grid_map[0]) #take  numbers of columns
+            
+            if len(row) != expected_cols:
+                    raise ValueError('All rows must have the same number of columns')
+
+            #validate that columns are being built from 1 and 0
+            for col in row:
+                    if isinstance(col,bool):
+                        raise TypeError('Columns cannot be composed of booleans')
+                    elif not isinstance(col,int):
+                        raise TypeError('Columns must be composed of integers')
+                    elif not (0 <= col <= 1):
+                        raise ValueError('Columns must contain values in range of 0-1')
+            
