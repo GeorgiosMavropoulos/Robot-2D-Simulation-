@@ -31,10 +31,10 @@ def angle_wrap(a)->float:
                      if angle is boolean
     """
 
-    if not isinstance(a,(float,int)):
-        raise TypeError('Angle must be a float or integer')
-    elif isinstance(a,bool):
+    if  isinstance(a,bool):
         raise TypeError('Angle cannot be a boolean')
+    elif not isinstance(a,(int,float)):
+        raise TypeError('Angle must be integer or float')
 
     if not math.isfinite(a):
          raise ValueError('a value must be a finite number')
@@ -53,9 +53,43 @@ class Robot:
 
         
         """
+        #validate arguments
+        self._validate_init_args(x,y,theta,linear_velocity,angular_velocity)
         self.x = x
         self.y = y
-        self.theta = theta
+        self.theta = angle_wrap(theta)
         self.linear_velocity = linear_velocity
         self.angular_velocity = angular_velocity
+
+
+    def _validate_init_args(self,x,y,theta,linear_velocity,angular_velocity):
+        """
+         Validate constructor's arguments
+
+          Args:
+                x -> float/int
+                y-> float/int
+                theta -> radians
+                linear_velocity -> numerical value
+                angular_velocity -> numerican value
+        """
+
+        variables_to_check = {
+                'x': x,
+                'y': y,
+                'theta': theta,
+                'linear_velocity': linear_velocity,
+                'angular_velocity': angular_velocity
+            }
+        for name,value in variables_to_check.items():
+            if isinstance(value,bool):
+              raise TypeError(f'{name} cannot be a boolean')
+
+            elif not isinstance(value,(float,int)):
+                raise TypeError(f'{name} must be float or integer')
+            
+            elif not math.isfinite(value):
+                raise ValueError(f'{name} must be a finite number')
+            
+            
 
