@@ -9,19 +9,18 @@ import math
 class Map:
     """Represents a 2D occupancy grid environment for motion planning."""
     def __init__(self,grid_map,cell_size=0.5):
-        """
-        Initializes the occupancy grid map with safe dimensions.
+        """Represents a 2D occupancy grid environment for motion planning.
 
-        Passes parameters directly into the internal  method 
-        _validate_init_args to ensure grid stability before allocating active 
-        state memory and properties.       
+    This class manages a multi-dimensional matrix representing discrete free spaces 
+    and obstacles. It provides coordinates transformation mechanisms between grid 
+    cell indexes (row, col) and real world physical metrics (x, y) coordinates.
 
-        Args:
-            grid_map (list[list[int]]): A two-dimensional nested list containing 
-                integers where 0 represents free space and 1 represents an obstacle.
-            cell_size (int | float, optional): The physical metric dimension of a 
-                single grid cell edge. Defaults to 0.5.
-        """
+    Attributes:
+        grid_map (list[list[int]]): The raw structural occupancy grid.
+        cell_size (int | float): The physical metric resolution of each grid cell.
+        rows (int): Total number of rows in the matrix.
+        cols (int): Total number of columns in the matrix.
+    """
         
         #valid initialization arguments
         self._validate_init_args(grid_map,cell_size)
@@ -238,21 +237,26 @@ class Map:
 
 
     def neighbors(self,cell) -> list[tuple]:
-            """Return the free 4-connected neighbours of a cell.
-    
-            Neighbours are checked in the order right, left, down, up
-            (row +1 is down, row -1 is up).
-    
-            Args:
-                cell (tuple): (row, col) indices.
-    
-            Returns:
-                list[tuple]: (row, col) of every free neighbour; cells outside
-                the map or holding an obstacle are left out.
-    
-            Raises:
-                TypeError: If cell is not a pair of integers.
             """
+                Returns all free 4-connected neighboring cells of a given cell.
+
+                Checks the four adjacent cells (right, left, down, and up) and
+                returns only those that are inside the map boundaries and do not
+                contain obstacles.
+
+                Args:
+                    cell (tuple[int, int]): A tuple containing the (row, col)
+                        indices of the cell whose neighbors are examined.
+
+                Returns:
+                    list[tuple[int, int]]: A list containing the (row, col)
+                        indices of all valid free neighboring cells.
+
+                Raises:
+                    TypeError: If cell is not a tuple containing exactly two
+                        integers, or if either element is a boolean.
+                    ValueError: If the cell indices are outside the map boundaries.
+                """
     
             #raise a type error if cell is not a tuple with 2 values
             if not isinstance(cell, tuple) or len(cell) != 2:
@@ -298,18 +302,85 @@ class Map:
             return neighbors
 
 
+    def add_obstacle_rect(self,r0, c0, r1, c1):
+            """Fill a rectangle of cells with obstacles.
+    
+            (r0, c0) and (r1, c1) are opposite corners and both belong to the
+            rectangle. The corners may be given in any order; they are swapped
+            if needed.
+    
+            Args:
+                r0, c0 (int): Row and column of one corner.
+                r1, c1 (int): Row and column of the opposite corner.
+    
+            Raises:
+                TypeError: If arguments are booleans or if an corner is not an integer.
+                ValueError: If a corner lies outside the map,
+                            
+            """
 
-grid = [
-    [0, 0, 1],
-    [0, 0, 0],
-    [1, 0, 0]
-]
 
-m = Map(grid)
+            #validate whether the arguments are not bools and they are integers or not
+            if isinstance(r0,bool) or isinstance (c0,bool) or isinstance(r1,bool) or isinstance(c1,bool):
+                 raise TypeError(f'Arguments cannot be booleans: {r0},{c0},{r1},{c1}')
+            elif not isinstance(r0,int) or not isinstance(c0,int) or not isinstance(r1,int) or not isinstance(c1,int):
+                 raise TypeError(f'Arguments must be integers:{r0},{c0},{r1},{c1}')
+    
+            #validate if edges are inside the map boundaries and they are integers. inbound_cell verifies if they integers too!
+            if not self._is_inbound(r0, c0) or not self._is_inbound(r1, c1):
+                raise ValueError(f"Both edges ({r0}, {c0}) and ({r1}, {c1}) must be inside the map boundaries.")
+    
+            #swap the values if users inputs r0 > r1 or c0> c1
+            if r0 >r1:
+                r0, r1 = r1, r0
+    
+            if c0 > c1:
+                c0,c1 = c1,c0        
+    
+            #if both angles are valid fill the rectangle with 1 using a nested for loop
+            for row in range(r0, r1 + 1):
+                for col in range(c0, c1 + 1):
+                    self.grid_map[row][col] = 1
 
-print(m.neighbors((1, 1)))
-print(m.neighbors((0, 0)))
-         
+
+    @classmethod
+    def build_default_map(cls):
+           """Creates a benchmark occupancy grid map with a stable layout of 3 obstacles.
+            
+            The obstacles are placed as interlocking walls to force any path-planning 
+            algorithm (like A*) to compute a trajectory with distinct left and right turns. 
+            This ensures all experiments compare tracking and controller gains with fairness.
+    
+            Args:
+                None
+    
+            Returns:
+                Map: An initialized Map instance with predefined static wall obstacles.
+            """
+
+           #create a grid with 0 and 1 to create the obstacles
+           grid = [[0 for col in range(20)]  for row in range(20)]
+
+           #declare a default map 20 * 20 with cell_size 0.2
+           default_map = cls(grid, cell_size=0.2)
+    
+           #build 3 wall-obstacles using add_obstacle_rect method
+          
+            #obstacle 1: Wall starting from the left edge and closes to 70% of the width
+           default_map.add_obstacle_rect(r0=5, c0=0, r1=5, c1=13)
+    
+            #obstacle 2: A wall which starts from the right edge and closes the 70% of the width
+           default_map.add_obstacle_rect(r0=10, c0=6, r1=10, c1=19)
+    
+           #obstacle 3: another wall from the left side
+           default_map.add_obstacle_rect(r0=15, c0=0, r1=15, c1=13)
+    
+           return default_map
+
+
+
+
+
 
 
 
