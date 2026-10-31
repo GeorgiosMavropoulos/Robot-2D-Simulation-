@@ -12,3 +12,11 @@ Robot 2D simulation with A* algorithm, and PID Control
 6. Recorded metrics: path length, cross track error, time to reach goal
 
 
+PID Class:
+Provides a robust PID (Proportional-Integral-Derivative) controller
+equipped with conditional integration (clamping) to prevent integral windup 
+during actuator saturation. It includes strict parameter validation at 
+initialization and runtime.
+Initialize: PID(kp,ki,kd,output_limits)
+
+
