@@ -280,7 +280,7 @@ class Simulator:
 
 
 
-    def time_to_goal(self, data)->int|str:
+    def time_to_goal(self, data:dict)->int|str:
         """Extracts the total elapsed travel time if the target goal was reached.
 
         This method checks the trajectory state profile results from the simulation.
@@ -318,7 +318,7 @@ class Simulator:
         else:
             return 'Robot failed to reach the goal'
 
-    def path_length(self, data)->float:
+    def path_length(self, data:dict)->float:
         """
         Computes the total Euclidean path length traversed by the robot.
 
@@ -380,6 +380,82 @@ class Simulator:
         #return definitive structural trajectory profile length
         return total_distance
 
+
+    def cross_track_error(self, data:dict)->tuple[float, float]:
+        """Computes the mean and maximum Cross-Track Error (CTE) of the robot.
+
+        This method calculates the perpendicular path tracking deviation of the 
+        robot at every recorded simulation time step relative to the nearest 
+        geometric waypoint segment. It then computes aggregated statistics to 
+        evaluate overall steering precision.
+
+        Args:
+            data (dict): The trajectory logging dictionary returned by run_simulation.
+                         Must contain tracking keys 'x' (list of floats) and 'y' (list of floats).
+
+        Returns:
+            tuple[float, float]: A pair containing (mean_error, max_error) across 
+                                 the entire historical trajectory profile.
+
+        Raises:
+            TypeError: If the data argument is not a dictionary payload.
+            KeyError: If required coordinate tracking keys 'x' or 'y' are missing.
+            ValueError: If coordinate arrays are empty, mismatched, or if no 
+                        waypoint segments are generated.
+        """
+        #type validation to ensure input payload is a structured dictionary
+        if not isinstance(data, dict):
+            raise TypeError("Input data must be a dictionary payload result.")
+
+        #key validation to verify necessary localized coordinate tracks are present
+        if "x" not in data or "y" not in data:
+            raise KeyError("Dictionary must contain both 'x' and 'y' tracking keys.")
+
+        #extract underlying tracking coordinates
+        x_coords = data["x"]
+        y_coords = data["y"]
+
+        #type validation ensuring target profiles are stored within standard sequence lists
+        if not isinstance(x_coords, list) or not isinstance(y_coords, list):
+            raise TypeError("Coordinate tracks 'x' and 'y' must be formatted as lists.")
+
+        #value validation confirming that both parallel positional arrays match in length
+        if len(x_coords) != len(y_coords):
+            raise ValueError("Coordinate arrays 'x' and 'y' must be equal in length.")
+
+        #value validation ensuring there are actual position entries to evaluate
+        if len(x_coords) == 0:
+            raise ValueError("Coordinate tracking lists cannot be empty.")
+
+        #value validation ensuring there are enough waypoints to formulate line segments
+        if len(self.waypoints) < 2:
+            raise ValueError("At least two waypoints are required to construct track segments.")
+
+        #pair adjacent trajectory waypoints into localized linear segment boundaries
+        segments = list(zip(self.waypoints[:-1], self.waypoints[1:]))
+        errors = []
+        
+        #iterate through every concurrent spatial coordinate recorded during the run
+        for x, y in zip(x_coords, y_coords):
+            robot_pos = (x, y)
+            
+            #TODO B6: find the absolute minimum tracking distance from (x, y) across ALL segments
+            min_segment_dist = min(
+                self.distance_point_to_segment(robot_pos, seg[0], seg[1]) for seg in segments
+            )
+            errors.append(min_segment_dist)
+            
+        # compute and return aggregated metrics as a descriptive (mean_error, max_error) tuple
+        mean_error = sum(errors) / len(errors)
+        max_error = max(errors)
+        
+        return mean_error, max_error
+
           
-    
+    def metrics(self, data):
+      mean_cte, max_cte = self.cross_track_error(data)
+      return {"time": self.time_to_goal(data),
+              "path_length": self.path_length(data),
+              "cte_mean": mean_cte,
+              "cte_max": max_cte} 
 
