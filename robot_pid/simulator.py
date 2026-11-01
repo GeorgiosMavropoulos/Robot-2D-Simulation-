@@ -131,7 +131,7 @@ class Simulator:
 
         return waypoints
 
-    def run_simulation(self):
+    def run_simulation(self)->dict:
       """
       Executes the closed-loop tracking simulation along the generated waypoint trajectory.
 
@@ -211,5 +211,69 @@ class Simulator:
       #map terminal condition state success flag status within returned dataset payload
       data["reached_goal"] = reached_goal
       return data
+
+
+
+    @staticmethod
+    def distance_point_to_segment(p, a, b):
+        """
+        Calculates the shortest Euclidean distance from a point to a line segment.
+
+        This function determines the minimum distance between a query point P and a 
+        finite straight-line segment bounded strictly by endpoints A and B. It handles 
+        the edge case where the segment is zero-length (A and B collapse into the same point)
+        and clamps the projection parameter to restrict calculations within the physical segment bounds.
+
+        Args:
+            p (tuple): The query point coordinate as (x, y).
+            a (tuple): The start point coordinate of the line segment as (x, y).
+            b (tuple): The end point coordinate of the line segment as (x, y).
+
+        Returns:
+            float: The minimum Euclidean distance from point P to the segment AB.
+
+        Raises:
+            TypeError: If any of the inputs are not sequences of two numbers (x, y).
+            ValueError: If any coordinate value is invalid (e.g., NaN or Infinity).
+    """
+
+        #type validation and structural error handling
+        try:
+            px, py = p
+            ax, ay = a
+            bx, by = b
+        except (TypeError, ValueError) as e:
+            raise TypeError(
+                f"Inputs must be sequences of two numbers (x, y). Error: {e}"
+            ) from e
+
+        #value validation (check for NaN or infinity)
+        if not all(math.isfinite(val) for val in [px, py, ax, ay, bx, by]):
+            raise ValueError("Coordinates must be finite real numbers (not NaN or Inf).")
+
+        #compute the directional vector coordinates of the segment from A to B (Vector AB)
+        abx, aby = b[0] - a[0], b[1] - a[1]
+
+        #calculate the squared magnitude/length of the segment AB (||AB||^2)
+        length_sq = abx**2 + aby**2
+
+         #edge case: if A and B are identical, the segment collapses into a single localized point
+        #the shortest distance is simply the direct Euclidean distance from P to point A
+        if length_sq == 0:
+            return math.dist(p, a)
+
+        #compute the vector coordinates stretching from segment start A to point P (Vector AP)
+        apx, apy = p[0] - a[0], p[1] - a[1]
+
+        #calculate projection factor 't' using the Vector Dot Product equation: (AP . AB) / ||AB||^2
+         #this evaluates where the perpendicular projection of P drops along the infinite line AB
+        t = (apx * abx + apy * aby) / length_sq
+
+        t = max(0, min(1, t))
+
+        #reconstruct the absolute world frame coordinates of the closest point on segment AB
+        closest_point = (a[0] + t * abx, a[1] + t * aby)
+
+        return math.dist(p, closest_point)
     
 
