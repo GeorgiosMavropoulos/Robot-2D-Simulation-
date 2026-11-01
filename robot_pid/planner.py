@@ -2,13 +2,43 @@
     AStar algorithm with Manhattan heuristic method
 """
 import math
+from map import Map
 from typing import Any
 class AStartPlanner:
+
     def __init__(self,map):
+        """
+           Initialized with an object from map class. Runs a validation method to raise an error if map
+           is not an object from Map()
+           Args:
+                map -> Map()
+
+           
+        """
+        #validate that map is an object from Map class
+        self._validate_init_arg(map)
         self.map = map
 
 
 
+    @staticmethod
+    def _validate_init_arg(map):
+        """
+           Validates that map is a valid object from map class
+
+           Args: 
+                map -> Map
+
+           Raises:
+                   TypeError: if map is not an instance of class Map
+
+         
+        """
+        if not isinstance(map, Map):
+            raise TypeError('map must be an instance of class Map')
+
+        
+    
     @staticmethod
     def _validate_point(point: Any, name: str) -> None:
         """Validates that a coordinate point is a tuple of two finite integers.
