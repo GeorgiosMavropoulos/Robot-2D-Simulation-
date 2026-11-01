@@ -2,7 +2,7 @@
 Simulator module
 """
 from __future__ import annotations
-
+import matplotlib.pyplot as plt 
 from .pid import PID
 from .planner import AStarPlanner
 from .robot import Robot
@@ -665,6 +665,81 @@ class Simulator:
           finally:
               #safely shut down engine pipeline hooks during termination sequences
               pygame.quit()
+
+
+     @staticmethod
+    def plot_comparison(runs, filename="simulation_comparison.png"):
+        """Plots trajectory comparisons side-by-side and saves the figure as an image.
+
+        This method maps out a discrete spatial grid tracking visualization across multiple 
+        simulation execution runs. It draws background occupancy obstacle layers, overlays 
+        planned baseline waypoints in red alongside actual position metrics curves in blue, 
+        and extracts localized controller parameter state gain settings directly into sub-chart labels.
+
+        Args:
+            runs (list[tuple]): A sequence collection containing run parameters formatted as 
+                                tuples of (label_str, simulator_obj, data_dict).
+            filename (str): The destination local storage file track path where the output figure 
+                            will be rendered and written. Defaults to "simulation_comparison.png".
+
+        Raises:
+            TypeError: If runs is not formatted as an iterable list structure.
+            ValueError: If the runs collection payload is completely empty.
+        """
+        #type and value validation checking matching comparison configurations
+        if not isinstance(runs, list):
+            raise TypeError("The comparison parameter runs must be provided as a structured list.")
+        if len(runs) == 0:
+            raise ValueError("The sequence collection 'runs' cannot be empty.")
+
+        #initialize responsive grid subplot dimensions based on active elements tracking structures
+        fig, axes = plt.subplots(1, len(runs), figsize=(5 * len(runs), 5), squeeze=False)
+
+        #iterate concurrently across spatial plot axis channels and structured datasets
+        for ax, (label, sim, data) in zip(axes[0], runs):
+            W = sim.map.cols * sim.map.cell_size
+            H = sim.map.rows * sim.map.cell_size
+
+            #render underlying occupancy grids (extent maps top grid row 0 cleanly to coordinates max height)
+            ax.imshow(sim.map.grid_map, cmap="Greys", vmin=0, vmax=1, extent=[0, W, 0, H])
+
+            #extract individual coordinate vectors for drawing optimal pathways
+            wx = [pt[0] for pt in sim.waypoints]
+            wy = [pt[1] for pt in sim.waypoints]
+
+            #overlay optimal reference point markers on top of grid lines as bright red dotted marks
+            ax.plot(wx, wy, 'ro-', markersize=4, label='Planned Waypoints')
+
+            #overlay dynamic historical vehicle trajectory pathways as a solid blue contour curve
+            ax.plot(data["x"], data["y"], 'b-', linewidth=2, label='Actual Trajectory')
+
+            #safely extract gain attributes from heading and speed controller entities
+            h_pid = sim.heading_pid
+            s_pid = sim.speed_pid
+            
+            #compile parameters into a detailed structural multiline title string
+            title_text = (
+                f"{label}\n"
+                f"Heading PID (Kp:{h_pid.kp:.2f}, Ki:{h_pid.ki:.2f}, Kd:{h_pid.kd:.2f})\n"
+                f"Speed PID (Kp:{s_pid.kp:.2f}, Ki:{s_pid.ki:.2f}, Kd:{s_pid.kd:.2f})"
+            )
+            
+            #apply text properties and enforce geometric coordinate scale uniformity properties
+            ax.set_title(title_text, fontsize=9)
+            ax.set_xlabel("X Coordinate (m)")
+            ax.set_ylabel("Y Coordinate (m)")
+            ax.set_aspect("equal")
+            ax.grid(True, linestyle="--", alpha=0.5)
+
+        #tighten layout distributions to remove wasteful white padding gaps
+        fig.tight_layout()
+        
+        #persist visualization figure metrics layout onto the disk drive asset registries
+        fig.savefig(filename, dpi=300)
+        print(f"Comparison plot figure successfully exported and saved as: '{filename}'")
+        
+        #render graphics scene layout windows to screen displays
+        plt.show()
 
 
 
