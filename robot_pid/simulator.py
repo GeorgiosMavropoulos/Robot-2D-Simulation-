@@ -317,5 +317,69 @@ class Simulator:
             return data['t'][-1]
         else:
             return 'Robot failed to reach the goal'
+
+    def path_length(self, data)->float:
+        """
+        Computes the total Euclidean path length traversed by the robot.
+
+        This method integrates the sequential point-to-point distances along the 
+        recorded trajectory history to determine the total physical odometer distance 
+        traveled by the mobile robot during the simulation run.
+
+        Args:
+            data (dict): The trajectory logging dictionary returned by run_simulation.
+                         Must contain tracking keys 'x' (list of floats) and 'y' (list of floats).
+
+        Returns:
+            float: The total path distance traveled in world units.
+
+        Raises:
+            TypeError: If the data argument is not a dictionary payload.
+            KeyError: If required coordinate tracking keys 'x' or 'y' are missing.
+            ValueError: If coordinate arrays are empty, structurally mismatched, or invalid.
+        """
+        #type validation to ensure input payload is a structured dictionary
+        if not isinstance(data, dict):
+            raise TypeError("Input data must be a dictionary payload result.")
+
+        #key validation to verify necessary localized coordinate tracks are present
+        if "x" not in data or "y" not in data:
+            raise KeyError("Dictionary must contain both 'x' and 'y' tracking keys.")
+
+        #extract underlying trajectory data structures
+        x_coords = data["x"]
+        y_coords = data["y"]
+
+        #type validation ensuring target profiles are stored within standard sequence lists
+        if not isinstance(x_coords, list) or not isinstance(y_coords, list):
+            raise TypeError("Coordinate tracks 'x' and 'y' must be formatted as lists.")
+
+        #value validation confirming that both parallel arrays match in overall structural length
+        if len(x_coords) != len(y_coords):
+            raise ValueError("Coordinate arrays 'x' and 'y' must be equal in length.")
+
+        #initialize absolute cumulative trajectory distance counter
+        total_distance = 0.0
+
+        #edge case safety check: return zero if there are fewer than two recorded coordinates
+        if len(x_coords) < 2:
+            return total_distance
+
+        #incrementally accumulate step-by-step distances across successive historical path markers
+        for i in range(len(x_coords) - 1):
+            #calculate displacement step change differences over the localized time slice interval
+            dx = x_coords[i + 1] - x_coords[i]
+            dy = y_coords[i + 1] - y_coords[i]
+            
+            #compute standard Euclidean vector magnitude step size using math.hypot
+            step_distance = math.hypot(dx, dy)
+            
+            #add calculated slice change directly into cumulative odometer storage registry
+            total_distance += step_distance
+
+        #return definitive structural trajectory profile length
+        return total_distance
+
+          
     
 
