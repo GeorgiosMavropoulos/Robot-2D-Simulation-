@@ -1,6 +1,8 @@
 """
 Simulator module
 """
+from __future__ import annotations
+
 from .pid import PID
 from .planner import AStarPlanner
 from .robot import Robot
@@ -215,7 +217,7 @@ class Simulator:
 
 
     @staticmethod
-    def distance_point_to_segment(p, a, b):
+    def distance_point_to_segment(p, a, b)->float:
         """
         Calculates the shortest Euclidean distance from a point to a line segment.
 
@@ -275,5 +277,45 @@ class Simulator:
         closest_point = (a[0] + t * abx, a[1] + t * aby)
 
         return math.dist(p, closest_point)
+
+
+
+    def time_to_goal(self, data)->int|str:
+        """Extracts the total elapsed travel time if the target goal was reached.
+
+        This method checks the trajectory state profile results from the simulation.
+        If the robot successfully completed its route, it returns the final recorded
+        timestamp. If the robot ran out of time or drifted off course, it returns a
+        failure status message string.
+
+        Args:
+            data (dict): The trajectory logging dictionary returned by run_simulation.
+                         Must contain the key 'reached_goal' (bool) and 't' (list of floats).
+
+        Returns:
+            float | str: The final elapsed time in seconds if reached_goal is True,
+                         or the descriptive failure string if False.
+
+        Raises:
+            TypeError: If the data argument is not a dictionary payload.
+            KeyError: If required tracking keys 'reached_goal' or 't' are missing.
+            ValueError: If the time tracking sequence array 't' is empty.
+        """
+        #type validation to ensure input payload is a structured dictionary
+        if not isinstance(data, dict):
+            raise TypeError("Input data must be a dictionary payload result.")
+
+        #key validation to verify necessary logging elements are present
+        if "reached_goal" not in data or "t" not in data:
+            raise KeyError("Dictionary must contain both 'reached_goal' and 't' tracking keys.")
+
+        #value validation to check that the timeseries list is not completely empty
+        if not isinstance(data["t"], list) or len(data["t"]) == 0:
+            raise ValueError("Time tracking array 't' cannot be empty or structurally invalid.")
+
+        if data["reached_goal"]:
+            return data['t'][-1]
+        else:
+            return 'Robot failed to reach the goal'
     
 
