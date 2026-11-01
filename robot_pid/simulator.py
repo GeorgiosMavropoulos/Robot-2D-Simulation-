@@ -1,5 +1,11 @@
 """
-Simulator module
+Simulator module.
+
+Runs a closed-loop path tracking simulation of a unicycle robot.
+A* plans a grid path, which is converted to world waypoints. Two PID
+controllers then drive the robot along it: one for heading (omega) and
+one for speed (v). The module also provides metrics, plots and a
+pygame animation.
 """
 from __future__ import annotations
 import matplotlib.pyplot as plt 
@@ -14,12 +20,19 @@ from robot import Robot, angle_wrap
 
 class Simulator:
     """
-    Manages and executes the kinematic simulation of a mobile robot.
-    
-    This class utilizes an A* path planner to generate structural grid waypoints,
-    converts them to world coordinates, and executes a closed-loop control system
-    using two independent PID controllers: one for heading (angular velocity) 
-    and one for speed (linear velocity).
+    Closed-loop path tracking simulator for a unicycle robot.
+
+    On creation, the simulator builds the occupancy map, plans a path with
+    A* from start_cell to goal_cell, and converts the path to world waypoints
+    in metres.
+
+    The control loop runs in steps of dt seconds. The heading PID turns the
+    robot toward the active waypoint. The speed PID sets the forward speed
+    from the remaining distance to the goal, scaled by cos(heading_error)
+    so the robot slows down when it is not facing the target.
+
+    Results are returned as a log dictionary. Metrics (time, path length,
+    cross-track error) are computed from that log.
     """
     def __init__(self, heading_pid, speed_pid, start_cell=(0, 0), goal_cell=(19, 19),
              dt=0.1, threshold=0.1, t_max=60.0):
@@ -108,168 +121,149 @@ class Simulator:
 
               
 
+    
     @staticmethod
-    def calculate_heading(current_pose, target_waypoint, tolerance=1e-3)->float:
-      """
-      Calculates the target theta (heading) for the robot to face a waypoint.
+    def calculate_heading(current_pose, target_waypoint, tolerance=1e-3) -> float | None:
+        """
+        Calculates the heading (theta) that points from the current position to a target.
 
-      Args:
-          current_pose (tuple): The robot's current position as (x, y).
-          target_waypoint (tuple): The goal position as (x, y).
-          tolerance (float): Distance threshold below which the robot is 
-              considered to have arrived at the waypoint. Defaults to 1e-3.
+        Note: `tolerance` is a numerical guard for "the robot is exactly on the target"
+        and is independent of the simulator's `threshold` (waypoint arrival radius).
 
-      Returns:
-          float: The target orientation (theta) in radians between -pi and pi.
-              Returns None if the robot is already at the waypoint.
+        Args:
+            current_pose (tuple): Current position as (x, y).
+            target_waypoint (tuple): Target position as (x, y).
+            tolerance (float): If the distance to the target is below this value, the
+                heading is undefined. Defaults to 1e-3.
 
-      Raises:
-          TypeError: If inputs are not iterable or missing required coordinates.
-          ValueError: If coordinate values are invalid (e.g., NaN or Inf).
-      """
-      #type validation and structural error handling
-      try:
-          x_curr, y_curr = current_pose
-          x_goal, y_goal = target_waypoint
-      except (TypeError, ValueError) as e:
-          raise TypeError(
-              f"Inputs must be sequences of two numbers (x, y). Error: {e}"
-          ) from e
+        Returns:
+            float | None: Heading in radians in [-pi, pi], or None if the robot is
+                within `tolerance` of the target (the caller must keep its current heading).
 
-      #value validation (check for NaN or infinity)
-      if not all(math.isfinite(val) for val in [x_curr, y_curr, x_goal, y_goal]):
-          raise ValueError("Coordinates must be finite real numbers (not NaN or Inf).")
+        Raises:
+            TypeError: If the inputs are not sequences of two numbers.
+            ValueError: If any coordinate is NaN or infinite.
+        """
+        try:
+            x_curr, y_curr = current_pose
+            x_goal, y_goal = target_waypoint
+        except (TypeError, ValueError) as e:
+            raise TypeError(
+                f"Inputs must be sequences of two numbers (x, y). Error: {e}"
+            ) from e
 
-      #calculate distance differences
-      delta_x = x_goal - x_curr
-      delta_y = y_goal - y_curr
+        if not all(math.isfinite(v) for v in (x_curr, y_curr, x_goal, y_goal)):
+            raise ValueError("Coordinates must be finite real numbers (not NaN or Inf).")
 
-      #Robotics Edge Case: Robot is already at the target point
-      # Calculating Euclidean distance to check against tolerance
-      distance = math.hypot(delta_x, delta_y)
-      if distance < tolerance:
-          #returning None signals to your controller to maintain current heading
-          return None
+        delta_x = x_goal - x_curr
+        delta_y = y_goal - y_curr
 
-      #compute safe theta
-      return math.atan2(delta_y, delta_x)
+        if math.hypot(delta_x, delta_y) < tolerance:
+            return None
+
+        return math.atan2(delta_y, delta_x)
 
 
    
-    def generate_waypoints(self,start_cell:tuple[int,int],goal_cell:tuple[int,int])->list[tuple[float, float]]:
+    def generate_waypoints(self, start_cell: tuple[int, int],goal_cell: tuple[int, int]) -> list[tuple[float, float]]:
+                       
         """
-        Generates a list of world coordinates (waypoints) from start to goal.
+        Plans a grid path from start to goal and converts it to world coordinates.
 
         Args:
-            start_cell (tuple): The starting grid position as (row, col).
-            goal_cell (tuple): The target grid position as (row, col).
+            start_cell (tuple): Start position as (row, col).
+            goal_cell (tuple): Goal position as (row, col).
 
         Returns:
-            list[tuple[float, float]]: A list of coordinates representing 
-                the path in the world frame, e.g., [(x1, y1), (x2, y2), ...].
+            list[tuple[float, float]]: Waypoints in metres as [(x1, y1), (x2, y2), ...].
+                Contains at least one point (the start) even when start equals goal.
 
         Raises:
-            ValueError: If the planner fails to find a valid path or 
-                does not return a list of cells.
+            ValueError: If the planner returns no path, or returns something that is not a list.
         """
+        cells = self.planner.a_star(start_cell, goal_cell)
 
-        cells = self.planner.a_star(start_cell,goal_cell)
+        if cells is None:
+            raise ValueError(f"No path found from {start_cell} to {goal_cell}.")
+        if not isinstance(cells, list):
+            raise ValueError(f"Planner returned {type(cells).__name__}, expected a list of cells.")
 
-        #return an error message if input cells are not a list
-        if not isinstance(cells,list):
-            raise ValueError('Invalid value for cells')
-
-        
-        waypoints =[]
-
-        #unpack cells and convert to world coordinates
-        for cell in cells:
-            row,col = cell
-            x,y = self.map.cell_to_world(row,col)
-            waypoints.append((x,y))           
+        waypoints = []
+        for row, col in cells:
+            x, y = self.map.cell_to_world(row, col)
+            waypoints.append((x, y))
 
         return waypoints
 
-    def run_simulation(self)->dict:
-      """
-      Executes the closed-loop tracking simulation along the generated waypoint trajectory.
+    def run_simulation(self) -> dict:
+        """
+        Runs the closed-loop path tracking simulation along the waypoints.
 
-        The simulation loop advances incrementally until either the final waypoint 
-        is successfully reached or the time elapsed crosses the t_max safety threshold.
+        The loop advances until the final waypoint is reached or t_max is exceeded.
+        PID controllers are reset at the start so repeated runs give the same result.
 
         Returns:
-            dict: An architectural log dictionary recording timeseries arrays for state profiles 
-                  (t, x, y, theta), errors (heading_error), commands (v_com, omega_com), 
-                  and a boolean flag signifying target goal resolution status.
+            dict: Time series 't', 'x', 'y', 'theta', 'heading_error', 'v_com', 'omega_com',
+                and the flag 'reached_goal' (bool).
         """
+        self.heading_pid.reset()
+        self.speed_pid.reset()
 
-      #reset heading pid and pid on each run in order not to accumulate previous values
-      self.heading_pid.reset()
-      self.speed_pid.reset()
+        x0, y0 = self.waypoints[0]
 
-      #extract the initial starting position coordinates from the waypoints array
-      x0, y0 = self.waypoints[0]
+        #already at the goal (start equals goal): nothing to track.
+        if len(self.waypoints) < 2:
+            return {"t": [0.0], "x": [x0], "y": [y0], "theta": [0.0],
+                    "heading_error": [0.0], "v_com": [0.0], "omega_com": [0.0],
+                    "reached_goal": True}
 
-      #calculate the target theta
-      theta0 = self.calculate_heading((x0, y0), self.waypoints[1])
-      #instanciate the localized Robot object tracking (x, y, theta, linear_vel, angular_vel)
-      robot = Robot(x0, y0, theta0, 0, 0)
+        theta0 = self.calculate_heading((x0, y0), self.waypoints[1])
+        if theta0 is None:
+            theta0 = 0.0  #first two waypoints coincide: keep a default heading
 
-      #create data logging dictionary structure with initial t=0 step entries
-      data = {"t": [0.0], "x": [robot.x], "y": [robot.y], "theta": [robot.theta],
-              "heading_error": [0.0], "v_com": [0.0], "omega_com": [0.0]}
+        robot = Robot(x0, y0, theta0, 0, 0)
 
-      #instanciate  tracking index pointer, total destination length index, clock, and status flag
-      index, last, t, reached_goal = 1, len(self.waypoints) - 1, 0.0, False
+        data = {"t": [0.0], "x": [robot.x], "y": [robot.y], "theta": [robot.theta],
+                "heading_error": [0.0], "v_com": [0.0], "omega_com": [0.0]}
 
-      #check if the robot has arrived within the threshold bounds of the current target waypoint
-      while t < self.t_max:
-          #if current index matches the terminal waypoint, target tracking is successfully completed
-          target = self.waypoints[index]
-          if math.dist((robot.x, robot.y), target) <= self.threshold:
-              if index == last:
-                  reached_goal = True
-                  break
-              #increment look-ahead pointer index to lock on to the next subsequent waypoint segment
-              index += 1
-              continue
-          # calculate the absolute desired heading vector pointing directly from the robot to the active waypoint
-          desired = self.calculate_heading((robot.x, robot.y), target)
+        index, last, t, reached_goal = 1, len(self.waypoints) - 1, 0.0, False
 
-          #compute rotational steering error wrapped tightly into the localized [-pi, pi] constraint framework
-          error = angle_wrap(desired - robot.theta)
-          #command the heading PID controller to update and generate the necessary angular velocity (omega)
-          omega = self.heading_pid.update(error, self.dt)
+        while t < self.t_max:
+            target = self.waypoints[index]
+            if math.dist((robot.x, robot.y), target) <= self.threshold:
+                if index == last:
+                    reached_goal = True
+                    break
+                index += 1
+                continue
 
-          #compute the residual Euclidean distance map directly separating the robot from its terminal goal
-          dist_goal = math.dist((robot.x,robot.y),self.waypoints[last])
+            desired = self.calculate_heading((robot.x, robot.y), target)
+            if desired is None:
+                #robot is numerically on the target: keep the current heading.
+                desired = robot.theta
 
-      
-          #query the speed PID controller to calculate base linear velocity based on remaining distance-to-goal
-          v = self.speed_pid.update(dist_goal,self.dt)
-          #scale linear velocity using cosine of heading error. This slows down the robot 
-          # when it's facing away from the target to prevent it from drifting off course during sharp turns.
-          v *= max(0, math.cos(error))
-          #apply computed commands directly to the robot's physical model attributes
-          robot.linear_velocity = v
-          robot.angular_velocity = omega
-          #propagate the robot state dynamics forward in time by one discrete time-step (dt)
-          robot.step(self.dt)
+            error = angle_wrap(desired - robot.theta)
+            omega = self.heading_pid.update(error, self.dt)
 
-          #increment  simulation execution runtime clock tracker
-          t += self.dt
-          #append newly updated parameters into log tracking indices
-          data["t"].append(t)
-          data["x"].append(robot.x)
-          data["y"].append(robot.y)
-          data["theta"].append(robot.theta)
-          data["heading_error"].append(error)
-          data["v_com"].append(v)
-          data["omega_com"].append(omega)
+            dist_goal = math.dist((robot.x, robot.y), self.waypoints[last])
+            v = self.speed_pid.update(dist_goal, self.dt)
+            v *= max(0.0, math.cos(error))
 
-      #map terminal condition state success flag status within returned dataset payload
-      data["reached_goal"] = reached_goal
-      return data
+            robot.linear_velocity = v
+            robot.angular_velocity = omega
+            robot.step(self.dt)
+
+            t += self.dt
+            data["t"].append(t)
+            data["x"].append(robot.x)
+            data["y"].append(robot.y)
+            data["theta"].append(robot.theta)
+            data["heading_error"].append(error)
+            data["v_com"].append(v)
+            data["omega_com"].append(omega)
+
+        data["reached_goal"] = reached_goal
+        return data
 
 
 
@@ -666,8 +660,10 @@ class Simulator:
               while running:
                   #flush device operating background interface signals to capture terminate calls
                   for event in pygame.event.get():
-                      if event.type == pygame.QUIT:
-                          running = False
+                    if event.type == pygame.QUIT:
+                        running = False
+                    elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                        running = False
 
                   #refresh window canvas by blasting pre-cached background surface layers on top
                   screen.blit(map_surface, (0, 0))
