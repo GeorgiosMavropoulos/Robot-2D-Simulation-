@@ -439,7 +439,7 @@ class Simulator:
         for x, y in zip(x_coords, y_coords):
             robot_pos = (x, y)
             
-            #TODO B6: find the absolute minimum tracking distance from (x, y) across ALL segments
+            #find the absolute minimum tracking distance from (x, y) across ALL segments
             min_segment_dist = min(
                 self.distance_point_to_segment(robot_pos, seg[0], seg[1]) for seg in segments
             )
@@ -459,3 +459,46 @@ class Simulator:
               "cte_mean": mean_cte,
               "cte_max": max_cte} 
 
+    def world_to_screen(self, x:float, y:float, scale:float)->tuple[float, float]:
+        """
+        Transforms continuous world frame coordinates into discrete 2D screen pixels.
+
+        This method scales real-world coordinates to fit onto a display window. 
+        It also handles an essential graphics inversion edge case: in world coordinates, 
+        the Y-axis points upward, whereas standard computer graphics screens position 
+        the origin (0,0) at the top-left corner, meaning screen coordinates point downward.
+
+        Args:
+            x (float): The horizontal position component in the world coordinate frame.
+            y (float): The vertical position component in the world coordinate frame.
+            scale (float): Scaling factor multiplier (e.g., pixels per world unit).
+
+        Returns:
+            tuple[float, float]: Position coordinate mapped to screen space as (px, py).
+
+        Raises:
+            TypeError: If x, y, or scale are not real numbers.
+            ValueError: If coordinate values or scale factors are infinite or NaN,
+                        or if the scale multiplier is zero or negative.
+        """
+        #type and value validation to guarantee inputs are safe finite real numbers
+        if not all(isinstance(val, (int, float)) for val in [x, y, scale]):
+            raise TypeError("Coordinates (x, y) and scale factor must be numeric integers or floats.")
+            
+        if not all(math.isfinite(val) for val in [x, y, scale]):
+            raise ValueError("Coordinates and scale must be finite real numbers (not NaN or Inf).")
+
+        if scale <= 0:
+            raise ValueError("The display scale parameter must be a positive non-zero value.")
+
+        #calculate total dynamic map height boundary in continuous world unit tracking space
+        height = self.map.rows * self.map.cell_size
+
+        #scale the horizontal vector directly to map standard pixel widths
+        px = x * scale
+        
+        #invert the vertical height axis so that the visual matrix renders right side up
+        py = (height - y) * scale
+
+        #return the computed pixel tuple coordinates to the drawing canvas pipeline
+        return (px, py)
