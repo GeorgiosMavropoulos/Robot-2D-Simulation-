@@ -552,3 +552,119 @@ class Simulator:
                     
                 #draw the scaled rectangular matrix unit grid onto the canvas layout surface
                 pygame.draw.rect(screen, color, rect)
+
+
+    def animate(self, data:dict, scale=150, fps=None):
+          """Animates the historical path tracking trajectory playback using Pygame.
+
+          This method visually updates step-by-step frames representing the robot moving 
+          along the path. It renders the underlying map layout matrix, displays the 
+          global planned target path in blue, maps a running history line of actual 
+          travel coordinates in red, and draws a robot directional tracker head.
+
+          Args:
+              data (dict): The trajectory logging dictionary returned by run_simulation.
+                          Must contain 't', 'x', 'y', and 'theta' coordinate tracks.
+              scale (float): Scaling factor multiplier to scale world coordinates to pixels. 
+                            Defaults to 150.
+              fps (float | None): Playback framing rate control ceiling. If None, it automatically 
+                                  locks and maps sync speed values matching the simulation 1/dt rate.
+
+          Raises:
+              TypeError: If the data input argument structure is not a dictionary payload.
+              KeyError: If mandatory timeseries metrics lists are missing from the data layout.
+          """
+          #type validation checking dataset parameters
+          if not isinstance(data, dict):
+              raise TypeError("Animation tracking playback dataset must be an encapsulated dict dictionary.")
+
+          #key validation checking required positional arrays
+          required_keys = ["t", "x", "y", "theta"]
+          if not all(key in data for key in required_keys):
+              raise KeyError("Input dictionary is missing mandatory keys: 't', 'x', 'y', or 'theta'.")
+
+          #initialize frame pacing limits from system delta changes if no manual limits are requested
+          if fps is None:
+              fps = 1.0 / self.dt
+
+          #initialize the graphical media system environment modules
+          pygame.init()
+          try:
+              #calculate exact window viewport layout resolution scales
+              width = int(self.map.cols * self.map.cell_size * scale)
+              height = int(self.map.rows * self.map.cell_size * scale)
+              screen = pygame.display.set_mode((width, height))
+              pygame.display.set_caption("Robot path tracking")
+              clock = pygame.time.Clock()
+
+              #pre-render static structural map grids onto an isolated background surface buffer
+              map_surface = pygame.Surface((width, height))
+              self.draw_map(map_surface, scale)
+
+              #transform planned waypoint sequences cleanly from world positions to display pixel arrays
+              planned = [self.world_to_screen(x, y, scale) for x, y in self.waypoints]
+              i, last, running = 0, len(data["t"]) - 1, True
+
+              #execute main visual playback event loops
+              while running:
+                  #flush device operating background interface signals to capture terminate calls
+                  for event in pygame.event.get():
+                      if event.type == pygame.QUIT:
+                          running = False
+
+                  #refresh window canvas by blasting pre-cached background surface layers on top
+                  screen.blit(map_surface, (0, 0))
+                  
+                  #draw the global structural optimal path layout track in solid blue
+                  pygame.draw.lines(screen, (0, 0, 255), False, planned, 3)
+
+                  #process current structural history coordinate paths up to loop frame tracker 'i'
+                  actual_trail_world = list(zip(data["x"][:i+1], data["y"][:i+1]))
+                  
+                  #convert history tracking elements straight to pixel coordinates
+                  actual_trail_pixels = [self.world_to_screen(wx, wy, scale) for wx, wy in actual_trail_world]
+
+                  #render the trailing actual robot footprint path tracking layout history line in red
+                  if len(actual_trail_pixels) >= 2:
+                      pygame.draw.lines(screen, (255, 0, 0), False, actual_trail_pixels, 2)
+
+                  #extract localized real-time tracking metrics at index position 'i'
+                  rx = data["x"][i]
+                  ry = data["y"][i]
+                  rtheta = data["theta"][i]
+
+                  #map robot center space origin directly inside frame pixels
+                  robot_center_px = self.world_to_screen(rx, ry, scale)
+
+                  #define structural radius parameters for drawing operations
+                  robot_radius_px = max(5, int(0.15 * scale)) #keep the robot size proportional to scale
+                  heading_line_length_m = 0.25 #length of the orientation pointer line in meters
+
+                  #calculate the absolute outer edge boundary coordinates of the nose vector in meters
+                  line_end_x_world = rx + heading_line_length_m * math.cos(rtheta)
+                  line_end_y_world = ry + heading_line_length_m * math.sin(rtheta)
+
+                  #convert the heading vector end-point directly to pixel layouts
+                  robot_nose_px = self.world_to_screen(line_end_x_world, line_end_y_world, scale)
+
+                  #draw the robot chassis footprint frame body container circle as a distinct bright green
+                  pygame.draw.circle(screen, (0, 255, 0), (int(robot_center_px[0]), int(robot_center_px[1])), robot_radius_px)
+
+                  #draw a dark orientation layout pointer line directly from robot center to nose location
+                  pygame.draw.line(screen, (0, 100, 0), robot_center_px, robot_nose_px, 3)
+
+                  #flip buffers to render full vector layouts onto display screens
+                  pygame.display.flip()
+                  
+                  #lock thread timing execution cycles to stay inside framing speed rates
+                  clock.tick(fps)
+                  
+                  #advance history array counters to load subsequent data profiles
+                  if i < last:
+                      i += 1
+          finally:
+              #safely shut down engine pipeline hooks during termination sequences
+              pygame.quit()
+
+
+
