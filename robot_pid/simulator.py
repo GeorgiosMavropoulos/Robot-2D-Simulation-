@@ -667,9 +667,10 @@ class Simulator:
               pygame.quit()
 
 
-     @staticmethod
+    @staticmethod
     def plot_comparison(runs, filename="simulation_comparison.png"):
-        """Plots trajectory comparisons side-by-side and saves the figure as an image.
+        """
+        Plots trajectory comparisons side-by-side and saves the figure as an image.
 
         This method maps out a discrete spatial grid tracking visualization across multiple 
         simulation execution runs. It draws background occupancy obstacle layers, overlays 
@@ -740,6 +741,76 @@ class Simulator:
         
         #render graphics scene layout windows to screen displays
         plt.show()
+
+
+
+    @staticmethod
+    def export_metrics_to_csv(runs, filename="simulation_metrics.csv"):
+        """Aggregates analytical metrics from all simulation runs and exports them to a CSV file.
+
+        This method extracts performance indices including target resolution status, absolute tracking runtime, 
+        cumulative odometer path length, and mean/maximum cross-track deviations across all run profiles 
+        and structures them inside a clean CSV tabular database file.
+
+        Args:
+            runs (list[tuple]): A sequence collection containing run parameters formatted as 
+                                tuples of (label_str, simulator_obj, data_dict).
+            filename (str): The destination local storage path where the CSV output file will be written. 
+                            Defaults to "simulation_metrics.csv".
+
+        Raises:
+            TypeError: If runs is not an iterable list payload.
+            ValueError: If no simulation configurations are provided inside the tracking inputs array.
+        """
+        import csv
+
+        #type and value validation checking payload characteristics
+        if not isinstance(runs, list):
+            raise TypeError("The tracking argument runs must be formatted as an accessible sequence list.")
+        if len(runs) == 0:
+            raise ValueError("The tracking simulation list cannot be empty.")
+
+        #open target output stream context handlers with clean newlines tracking parameters
+        with open(filename, mode='w', newline='', encoding='utf-8') as csv_file:
+            #define database schema headers covering core kinematics and control stability tracking elements
+            fieldnames = [
+                "Run_Label", 
+                "Reached_Goal", 
+                "Total_Time_Seconds", 
+                "Path_Length_Meters", 
+                "Mean_CTE_Meters", 
+                "Max_CTE_Meters"
+            ]
+            
+            #instantiate standard writing interfaces
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+            
+            #write structural column headers onto line index zero
+            writer.writeheader()
+
+            #process each simulation dataset sequence incrementally
+            for label, sim, data in runs:
+                #calculate total elapsed duration metrics profiles safely
+                time_metric = sim.time_to_goal(data)
+                
+                #calculate cumulative spatial displacement distances traversed
+                distance_metric = sim.path_length(data)
+                
+                #calculate tracking alignment error margins profiles
+                mean_cte, max_cte = sim.cross_track_error(data)
+
+                #populate table records matching target columns keys
+                writer.writerow({
+                    "Run_Label": label,
+                    "Reached_Goal": data["reached_goal"],
+                    "Total_Time_Seconds": time_metric,
+                    "Path_Length_Meters": round(distance_metric, 4),
+                    "Mean_CTE_Meters": round(mean_cte, 4),
+                    "Max_CTE_Meters": round(max_cte, 4)
+                })
+
+        print(f"Performance metrics tabular datasheet successfully written to: '{filename}'")
+
 
 
 
