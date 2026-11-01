@@ -3,14 +3,14 @@ Simulator module
 """
 from __future__ import annotations
 import matplotlib.pyplot as plt 
-from .pid import PID
-from .planner import AStarPlanner
-from .robot import Robot
-from .map import Map
+
+from planner import AStarPlanner
+
+from map import Map
 import pygame
-import math
 import csv
-from .robot import Robot, angle_wrap
+import math
+from robot import Robot, angle_wrap
 
 class Simulator:
     """
@@ -41,6 +41,8 @@ class Simulator:
 
             t_max (float): Maximum allowed runtime ceiling for the simulation in seconds. Defaults to 60.0.
         """
+             #validate initialization arguments
+             self._validate_init_args(heading_pid, speed_pid, start_cell, goal_cell, dt, threshold, t_max)
              self.map = Map.build_default_map()
              self.planner = AStarPlanner(self.map)
              self.waypoints = self.generate_waypoints(start_cell, goal_cell)
@@ -51,6 +53,60 @@ class Simulator:
              self.t_max = t_max
 
 
+    def _validate_init_args(self, heading_pid, speed_pid, start_cell, goal_cell, dt, threshold, t_max):
+          """
+          Validates types, interfaces, structural boundaries, and mathematical constraints.
+
+          This helper ensures the input PID controllers possess the correct interface 
+          update and reset methods, checks that cellular grid destinations are formatted 
+          as valid index integer coordinate pairs, and verifies that time slices, limits, 
+          and tolerance ranges are strictly positive finite numbers.
+
+          Args:
+              heading_pid: The controller object passed to govern angular steering loops.
+              speed_pid: The controller object passed to govern linear movement velocities.
+              start_cell (tuple): Matrix index row/column tracking location for spawning.
+              goal_cell (tuple): Matrix index row/column tracking location for terminal target.
+              dt (float): Continuous simulation step discrete increment interval.
+              threshold (float): Euclidean error arrival boundary margin scale.
+              t_max (float): Maximum simulation sequence time restriction ceiling.
+
+          Raises:
+              TypeError: If controller objects lack callable interfaces, cells aren't 
+                          integer tuples, or parameters are not standard numeric values.
+              ValueError: If cell coordinates are negative, or if parameters (dt, threshold, t_max)
+                          are zero, negative, or non-finite.
+          """
+          #interface structural verification checking required operational method hooks
+          if not hasattr(heading_pid, "update") or not hasattr(heading_pid, "reset"):
+              raise TypeError("heading_pid object must implement callable update() and reset() methods.")
+          if not hasattr(speed_pid, "update") or not hasattr(speed_pid, "reset"):
+              raise TypeError("speed_pid object must implement callable update() and reset() methods.")
+
+          #cell coordinates layout type tracking validation checks
+          for cell_name, cell in [("start_cell", start_cell), ("goal_cell", goal_cell)]:
+              if not isinstance(cell, (tuple, list)) or len(cell) != 2:
+                  raise TypeError(f"{cell_name} must be a sequence container of exactly 2 elements.")
+              if isinstance(cell[0], bool) or isinstance(cell[1], bool):
+                  raise TypeError(f"{cell_name} indices cannot be formatted as boolean types.")
+              if not isinstance(cell[0], int) or not isinstance(cell[1], int):
+                  raise TypeError(f"{cell_name} tracking grid matrix indices must be strict integers.")
+              if cell[0] < 0 or cell[1] < 0:
+                  raise ValueError(f"{cell_name} layout coordinate elements cannot be negative numbers.")
+
+          #numeric profile constraints mapping validations loop
+          numeric_params = [("dt", dt), ("threshold", threshold), ("t_max", t_max)]
+          for param_name, value in numeric_params:
+              if isinstance(value, bool):
+                  raise TypeError(f"Parameter '{param_name}' cannot be passed as a boolean flag.")
+              if not isinstance(value, (int, float)):
+                  raise TypeError(f"Parameter '{param_name}' must be formatted as an integer or float numeric type.")
+              if not math.isfinite(value):
+                  raise ValueError(f"Parameter '{param_name}' must be passed as a valid finite real number.")
+              if value <= 0:
+                  raise ValueError(f"Parameter '{param_name}' must evaluate to a strictly positive non-zero metric.")
+
+              
 
     @staticmethod
     def calculate_heading(current_pose, target_waypoint, tolerance=1e-3)->float:
@@ -670,8 +726,7 @@ class Simulator:
 
     @staticmethod
     def plot_comparison(runs, filename="simulation_comparison.png"):
-        """
-        Plots trajectory comparisons side-by-side and saves the figure as an image.
+        """Plots trajectory comparisons side-by-side and saves the figure as an image.
 
         This method maps out a discrete spatial grid tracking visualization across multiple 
         simulation execution runs. It draws background occupancy obstacle layers, overlays 
@@ -744,7 +799,6 @@ class Simulator:
         plt.show()
 
 
-
     @staticmethod
     def export_metrics_to_csv(runs, filename="simulation_metrics.csv"):
         """
@@ -812,7 +866,6 @@ class Simulator:
                 })
 
         print(f"Performance metrics tabular datasheet successfully written to: '{filename}'")
-
 
 
 
