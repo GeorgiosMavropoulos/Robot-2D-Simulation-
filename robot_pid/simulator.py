@@ -9,6 +9,7 @@ from .robot import Robot
 from .map import Map
 import pygame
 import math
+import csv
 from .robot import Robot, angle_wrap
 
 class Simulator:
@@ -746,7 +747,8 @@ class Simulator:
 
     @staticmethod
     def export_metrics_to_csv(runs, filename="simulation_metrics.csv"):
-        """Aggregates analytical metrics from all simulation runs and exports them to a CSV file.
+        """
+        Aggregates analytical metrics from all simulation runs and exports them to a CSV file.
 
         This method extracts performance indices including target resolution status, absolute tracking runtime, 
         cumulative odometer path length, and mean/maximum cross-track deviations across all run profiles 
@@ -762,7 +764,7 @@ class Simulator:
             TypeError: If runs is not an iterable list payload.
             ValueError: If no simulation configurations are provided inside the tracking inputs array.
         """
-        import csv
+        
 
         #type and value validation checking payload characteristics
         if not isinstance(runs, list):
