@@ -502,3 +502,53 @@ class Simulator:
 
         #return the computed pixel tuple coordinates to the drawing canvas pipeline
         return (px, py)
+
+
+    def draw_map(self, screen, scale:float):
+        """Renders the grid map onto the Pygame display screen surface.
+
+        This method iterates through the rows and columns of the underlying grid map, 
+        constructs a corresponding pixel rectangle for each cell scaled to display sizes,
+        maps the cell state (free vs. obstacle) to a specific visual color, and 
+        draws the grid elements onto the display screen canvas pipeline.
+
+        Args:
+            screen (pygame.Surface): The active Pygame screen display window surface to draw on.
+            scale (float): Scaling factor multiplier converting world dimensions into screen pixels.
+
+        Raises:
+            TypeError: If the scale parameter is not a numeric value.
+            ValueError: If the scale multiplier is zero or negative.
+        """
+        #type and value validation to ensure the scale parameter is safe
+        if not isinstance(scale, (int, float)):
+            raise TypeError("The display scale parameter must be a numeric integer or float.")
+        if scale <= 0:
+            raise ValueError("The display scale parameter must be a positive non-zero value.")
+
+        #define RGB color values for rendering states
+        free_color = (255, 255, 255) #white color for accessible pathways
+        obstacle_color = (40, 40, 40) #dark gray/black color for impassable wall barriers
+
+        #calculate discrete screen cell dimensions in terms of pixels
+        cell_px = self.map.cell_size * scale
+        
+        #traverse the entire matrix configuration space row by row
+        for row in range(self.map.rows):
+            for col in range(self.map.cols):
+                #construct the target bounding rect element for Pygame layout rendering
+                rect = pygame.Rect(
+                    round(col * cell_px), 
+                    round(row * cell_px),
+                    math.ceil(cell_px), 
+                    math.ceil(cell_px)
+                )
+                
+                #check cell value configuration array indices to assign correct render color
+                if self.map.grid_map[row][col] == 1:
+                    color = obstacle_color
+                else:
+                    color = free_color
+                    
+                #draw the scaled rectangular matrix unit grid onto the canvas layout surface
+                pygame.draw.rect(screen, color, rect)
