@@ -17,6 +17,8 @@ Robot 2D simulation with A* algorithm, and PID Control
 ├── requirements.txt # pygame, matplotlib
 ├── README.md
 ├── .gitignore
+└── comparison_results/
+├──   *all plot figures
 └── robot_pid/
 ├── init.py # marks the folder as a package
 ├── pid.py # PID controller
