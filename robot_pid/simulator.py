@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Simulator module.
 
@@ -7,16 +8,18 @@ controllers then drive the robot along it: one for heading (omega) and
 one for speed (v). The module also provides metrics, plots and a
 pygame animation.
 """
-from __future__ import annotations
+import os
+import numpy as np
+
 import matplotlib.pyplot as plt 
 
-from planner import AStarPlanner
+from .planner import AStarPlanner
 
-from map import Map
+from .map import Map
 import pygame
 import csv
 import math
-from robot import Robot, angle_wrap
+from .robot import Robot, angle_wrap
 
 class Simulator:
     """
@@ -720,79 +723,278 @@ class Simulator:
               pygame.quit()
 
 
-    @staticmethod
-    def plot_comparison(runs, filename="simulation_comparison.png"):
-        """Plots trajectory comparisons side-by-side and saves the figure as an image.
+    @staticmethod    
+    def plot_comparison(runs, output_dir="comparison_results"):
+        """
+        Plots and exports individual trajectory and cross track error comparisons
+        for multiple simulation execution runs.
 
-        This method maps out a discrete spatial grid tracking visualization across multiple 
-        simulation execution runs. It draws background occupancy obstacle layers, overlays 
-        planned baseline waypoints in red alongside actual position metrics curves in blue, 
-        and extracts localized controller parameter state gain settings directly into sub-chart labels.
+        This method generates two separate visualization figures for each simulation
+        run. The first figure illustrates the occupancy grid, planned baseline
+        waypoints, and actual vehicle trajectory. The second figure illustrates
+        the cross track error time series alongside its mean absolute value.
+
+        The cross track error is calculated as the minimum Euclidean distance
+        between each actual vehicle position and the line segments connecting
+        consecutive planned waypoints.
 
         Args:
-            runs (list[tuple]): A sequence collection containing run parameters formatted as 
-                                tuples of (label_str, simulator_obj, data_dict).
-            filename (str): The destination local storage file track path where the output figure 
-                            will be rendered and written. Defaults to "simulation_comparison.png".
+            runs (list[tuple]): A sequence collection containing run parameters
+                                formatted as tuples of
+                                (label_str, simulator_obj, data_dict).
+            output_dir (str): The destination directory where individual trajectory
+                            and cross track error figures will be exported.
+                            Defaults to "comparison_results".
+
+        Returns:
+            list[dict]: A collection containing the simulation run labels and
+                        their corresponding mean absolute cross track errors.
 
         Raises:
-            TypeError: If runs is not formatted as an iterable list structure.
-            ValueError: If the runs collection payload is completely empty.
+            TypeError: If runs is not provided as a structured list.
+            ValueError: If the runs collection is empty or trajectory data
+                        contains inconsistent coordinate dimensions.
         """
-        #type and value validation checking matching comparison configurations
+
+        #validate comparison configuration parameters
         if not isinstance(runs, list):
-            raise TypeError("The comparison parameter runs must be provided as a structured list.")
+            raise TypeError(
+                "The comparison parameter runs must be provided as a structured list."
+            )
+
         if len(runs) == 0:
-            raise ValueError("The sequence collection 'runs' cannot be empty.")
+            raise ValueError(
+                "The sequence collection 'runs' cannot be empty."
+            )
 
-        #initialize responsive grid subplot dimensions based on active elements tracking structures
-        fig, axes = plt.subplots(1, len(runs), figsize=(5 * len(runs), 5), squeeze=False)
+        #create destination directory for exported visualization figures
+        os.makedirs(output_dir, exist_ok=True)
 
-        #iterate concurrently across spatial plot axis channels and structured datasets
-        for ax, (label, sim, data) in zip(axes[0], runs):
+        #initialize collection for storing cross track error evaluation metrics
+        results = []
+
+        #iterate through individual simulation execution runs
+        for i, (label, sim, data) in enumerate(runs, start=1):
+
+            # Extract occupancy grid spatial dimensions
             W = sim.map.cols * sim.map.cell_size
             H = sim.map.rows * sim.map.cell_size
 
-            #render underlying occupancy grids (extent maps top grid row 0 cleanly to coordinates max height)
-            ax.imshow(sim.map.grid_map, cmap="Greys", vmin=0, vmax=1, extent=[0, W, 0, H])
+            #extract planned trajectory waypoint coordinate vectors
+            wx = np.array([pt[0] for pt in sim.waypoints])
+            wy = np.array([pt[1] for pt in sim.waypoints])
 
-            #extract individual coordinate vectors for drawing optimal pathways
-            wx = [pt[0] for pt in sim.waypoints]
-            wy = [pt[1] for pt in sim.waypoints]
+            #extract actual vehicle trajectory coordinate vectors
+            actual_x = np.asarray(data["x"])
+            actual_y = np.asarray(data["y"])
 
-            #overlay optimal reference point markers on top of grid lines as bright red dotted marks
-            ax.plot(wx, wy, 'ro-', markersize=4, label='Planned Waypoints')
+            #extract simulation time series or generate sample indices
+            time = np.asarray(
+                data.get("time", np.arange(len(actual_x)))
+            )
 
-            #overlay dynamic historical vehicle trajectory pathways as a solid blue contour curve
-            ax.plot(data["x"], data["y"], 'b-', linewidth=2, label='Actual Trajectory')
+            #validate trajectory data dimensional consistency
+            if not (
+                len(actual_x) == len(actual_y) == len(time)
+            ):
+                raise ValueError(
+                    f"Inconsistent trajectory data in run: {label}"
+                )
 
-            #safely extract gain attributes from heading and speed controller entities
+            if len(wx) < 2:
+                raise ValueError(
+                    "At least two planned waypoints are required."
+                )
+
+            # --------------------------------------------------
+            # Cross Track Error Calculation
+            # --------------------------------------------------
+
+            #construct consecutive planned trajectory line segments
+            path_start = np.column_stack((wx[:-1], wy[:-1]))
+            path_end = np.column_stack((wx[1:], wy[1:]))
+
+            segments = path_end - path_start
+
+            #calculate squared segment lengths for projection operations
+            segment_lengths_sq = np.sum(segments**2, axis=1)
+
+            #initialize cross track error measurement collection
+            cte = []
+
+            #calculate minimum distance from each actual position
+            # to the planned trajectory line segments
+            for px, py in zip(actual_x, actual_y):
+
+                #define current actual vehicle position
+                position = np.array([px, py])
+
+                #calculate relative position vectors from segment starting points
+                relative = position - path_start
+
+                #calculate projection parameters onto each line segment
+                t = np.sum(relative * segments, axis=1) / np.maximum(
+                    segment_lengths_sq, 1e-12
+                )
+
+                #constrain projections within the segment boundaries
+                t = np.clip(t, 0, 1)
+
+                #calculate projected points onto planned trajectory segments
+                projections = path_start + t[:, None] * segments
+
+                #calculate Euclidean distances to all projected points
+                distances = np.linalg.norm(
+                    projections - position, axis=1
+                )
+
+                #store minimum distance as the current cross track error
+                cte.append(np.min(distances))
+
+            cte = np.asarray(cte)
+
+            #clculate Mean Absolute Cross Track Error
+            mean_cte = np.mean(np.abs(cte))
+
+            #store evaluation metrics for the current simulation run
+            results.append({
+                "run": label,
+                "mean_cte": mean_cte
+            })
+
+            # --------------------------------------------------
+            # Plot 1: Planned and Actual Trajectory Comparison
+            # --------------------------------------------------
+
+            #initialize individual trajectory visualization figure
+            fig, ax = plt.subplots(figsize=(7, 6))
+
+            #render underlying occupancy grid obstacle layer
+            ax.imshow(
+                sim.map.grid_map,
+                cmap="Greys",
+                vmin=0,
+                vmax=1,
+                extent=[0, W, 0, H],
+                origin="upper"
+            )
+
+            #overlay planned baseline trajectory waypoints
+            ax.plot(
+                wx,
+                wy,
+                'ro-',
+                markersize=4,
+                linewidth=1.5,
+                label="Planned Waypoints"
+            )
+
+            #overlay actual vehicle trajectory measurements
+            ax.plot(
+                actual_x,
+                actual_y,
+                'b-',
+                linewidth=2,
+                label="Actual Trajectory"
+            )
+
+            #extract heading and speed controller gain parameters
             h_pid = sim.heading_pid
             s_pid = sim.speed_pid
-            
-            #compile parameters into a detailed structural multiline title string
+
+            #compile controller configuration into figure title
             title_text = (
-                f"{label}\n"
-                f"Heading PID (Kp:{h_pid.kp:.2f}, Ki:{h_pid.ki:.2f}, Kd:{h_pid.kd:.2f})\n"
-                f"Speed PID (Kp:{s_pid.kp:.2f}, Ki:{s_pid.ki:.2f}, Kd:{s_pid.kd:.2f})"
+                f"{label} - Trajectory Comparison\n"
+                f"Heading PID (Kp:{h_pid.kp:.2f}, "
+                f"Ki:{h_pid.ki:.2f}, Kd:{h_pid.kd:.2f})\n"
+                f"Speed PID (Kp:{s_pid.kp:.2f}, "
+                f"Ki:{s_pid.ki:.2f}, Kd:{s_pid.kd:.2f})"
             )
-            
-            #apply text properties and enforce geometric coordinate scale uniformity properties
-            ax.set_title(title_text, fontsize=9)
+
+            #apply axis labels, geometric scaling, and grid properties
+            ax.set_title(title_text, fontsize=10)
             ax.set_xlabel("X Coordinate (m)")
             ax.set_ylabel("Y Coordinate (m)")
             ax.set_aspect("equal")
             ax.grid(True, linestyle="--", alpha=0.5)
+            ax.legend()
 
-        #tighten layout distributions to remove wasteful white padding gaps
-        fig.tight_layout()
-        
-        #persist visualization figure metrics layout onto the disk drive asset registries
-        fig.savefig(filename, dpi=300)
-        print(f"Comparison plot figure successfully exported and saved as: '{filename}'")
-        
-        #render graphics scene layout windows to screen displays
-        plt.show()
+            #adjust layout and export trajectory visualization figure
+            fig.tight_layout()
+
+            fig.savefig(
+                os.path.join(
+                    output_dir,
+                    f"trajectory_run_{i}.png"
+                ),
+                dpi=300,
+                bbox_inches="tight"
+            )
+            plt.show()
+
+            #close current figure to release visualization resources
+            plt.close(fig)
+
+            # --------------------------------------------------
+            # Plot 2: Cross Track Error Time Series
+            # --------------------------------------------------
+
+            #initialize individual cross track error visualization figure
+            fig, ax = plt.subplots(figsize=(7, 4.5))
+
+            #plot cross track error measurements over simulation time
+            ax.plot(
+                time,
+                cte,
+                color="blue",
+                linewidth=1.8,
+                label="Cross Track Error"
+            )
+
+            #overlay mean absolute cross track error reference line
+            ax.axhline(
+                y=mean_cte,
+                color="red",
+                linestyle="--",
+                linewidth=1.8,
+                label=f"Mean Absolute CTE = {mean_cte:.3f} m"
+            )
+
+            #configure cross track error figure title and axis properties
+            ax.set_title(
+                f"{label} - Cross Track Error",
+                fontsize=11
+            )
+
+            ax.set_xlabel("Time (s)")
+            ax.set_ylabel("Cross Track Error (m)")
+            ax.grid(True, linestyle="--", alpha=0.5)
+            ax.legend()
+
+            #adjust layout and export cross track error visualization figure
+            fig.tight_layout()
+
+            fig.savefig(
+                os.path.join(
+                    output_dir,
+                    f"cte_run_{i}.png"
+                ),
+                dpi=300,
+                bbox_inches="tight"
+            )
+            plt.show()
+
+            #close current figure to release visualization resources
+            plt.close(fig)
+
+            #print simulation evaluation metrics
+            print(f"Run: {label}")
+            print(f"Mean Absolute CTE: {mean_cte:.4f} m")
+            print("-" * 50)
+
+        #return collected cross track error evaluation results
+        return results
+
 
 
     @staticmethod
