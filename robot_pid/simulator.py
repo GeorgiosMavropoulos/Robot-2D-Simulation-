@@ -987,10 +987,7 @@ class Simulator:
             #close current figure to release visualization resources
             plt.close(fig)
 
-            #print simulation evaluation metrics
-            print(f"Run: {label}")
-            print(f"Mean Absolute CTE: {mean_cte:.4f} m")
-            print("-" * 50)
+        
 
         #return collected cross track error evaluation results
         return results
