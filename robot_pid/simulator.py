@@ -767,6 +767,9 @@ class Simulator:
                 "The sequence collection 'runs' cannot be empty."
             )
 
+        #initialize absolute output directory path
+        output_dir = os.path.abspath(output_dir)
+
         #create destination directory for exported visualization figures
         os.makedirs(output_dir, exist_ok=True)
 
@@ -983,6 +986,9 @@ class Simulator:
                 bbox_inches="tight"
             )
             plt.show()
+
+            if not os.path.isdir(output_dir):
+                raise OSError(f"Output directory could not be created: {output_dir}")
 
             #close current figure to release visualization resources
             plt.close(fig)
