@@ -55,22 +55,45 @@ def _run_sim_and_plot_results(heading_gains_list:tuple[list])->tuple[list]:
             runs.append((label, sim, data))
     
     
-            #print the results table
-    header = (f"{'Run':<8}{'Reached':<9}{'Time [s]':<10}"
-                        f"{'Path [m]':<10}{'CTE mean':<10}{'CTE max':<10}")
+           
+     #print the table headers
+    header = (
+        f"{'Run':<8}"
+        f"{'H_Kp':<8}{'H_Ki':<8}{'H_Kd':<8}"
+        f"{'S_Kp':<8}{'S_Ki':<8}{'S_Kd':<8}"
+        f"{'Reached':<9}{'Time [s]':<10}"
+        f"{'Path [m]':<10}{'CTE mean':<10}{'CTE max':<10}"
+    )
+
     print(header)
     print("-" * len(header))
+
+    #print values
     for label, sim, data in runs:
         m = sim.metrics(data)
+
         time_str = f"{m['time']:.1f}" if isinstance(m["time"], float) else "-"
-        print(f"{label:<8}{str(data['reached_goal']):<9}{time_str:<10}"
-        f"{m['path_length']:<10.2f}{m['cte_mean']:<10.3f}{m['cte_max']:<10.3f}")
 
-    #export CSV and comparison plot
-    sim.export_metrics_to_csv(runs)
-    sim.plot_comparison(runs)
+        print(
+            f"{label:<8}"
+            f"{sim.heading_pid.kp:<8.2f}"
+            f"{sim.heading_pid.ki:<8.2f}"
+            f"{sim.heading_pid.kd:<8.2f}"
+            f"{sim.speed_pid.kp:<8.2f}"
+            f"{sim.speed_pid.ki:<8.2f}"
+            f"{sim.speed_pid.kd:<8.2f}"
+            f"{str(data['reached_goal']):<9}"
+            f"{time_str:<10}"
+            f"{m['path_length']:<10.2f}"
+            f"{m['cte_mean']:<10.3f}"
+            f"{m['cte_max']:<10.3f}"
+        )
 
-    return runs
+        #export CSV and comparison plot
+        sim.export_metrics_to_csv(runs)
+        sim.plot_comparison(runs)
+
+        return runs
 
 def main():
 
