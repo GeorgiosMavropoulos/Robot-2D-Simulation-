@@ -731,20 +731,30 @@ class Simulator:
 
         This method generates two separate visualization figures for each simulation
         run. The first figure illustrates the occupancy grid, planned baseline
-        waypoints, and actual vehicle trajectory. The second figure illustrates
-        the cross track error time series alongside its mean absolute value.
+        waypoints, and actual vehicle trajectory. The second figure illustrates the
+        cross track error time series alongside its mean absolute value.
 
         The cross track error is calculated as the minimum Euclidean distance
         between each actual vehicle position and the line segments connecting
         consecutive planned waypoints.
 
+        All generated figures are exported as separate PNG files inside the
+        specified output directory. If the directory does not exist, it is
+        automatically created before saving the figures.
+
+        For each simulation run, the following files are generated:
+            - Run_<index>_Trajectory.png
+            - Run_<index>_Cross_Track_Error.png
+
         Args:
             runs (list[tuple]): A sequence collection containing run parameters
                                 formatted as tuples of
                                 (label_str, simulator_obj, data_dict).
-            output_dir (str): The destination directory where individual trajectory
-                            and cross track error figures will be exported.
-                            Defaults to "comparison_results".
+            output_dir (str): The destination directory where the generated PNG
+                            figures will be saved. The directory is created
+                            automatically if it does not already exist.
+                            Defaults to "comparison_results". Relative paths
+                            are resolved from the current working directory.
 
         Returns:
             list[dict]: A collection containing the simulation run labels and
@@ -753,7 +763,9 @@ class Simulator:
         Raises:
             TypeError: If runs is not provided as a structured list.
             ValueError: If the runs collection is empty or trajectory data
-                        contains inconsistent coordinate dimensions.
+                        is invalid or insufficient.
+            OSError: If the output directory cannot be created or the figures
+                    cannot be saved to the specified location.
         """
 
         #validate comparison configuration parameters
@@ -1032,6 +1044,14 @@ class Simulator:
             #define database schema headers covering core kinematics and control stability tracking elements
             fieldnames = [
                 "Run_Label", 
+                "Heading_Kp",
+                "Heading_Ki",
+                "Heading_Kd",
+
+                "Speed_Kp",
+                "Speed_Ki",
+                "Speed_Kd",
+                
                 "Reached_Goal", 
                 "Total_Time_Seconds", 
                 "Path_Length_Meters", 
@@ -1047,6 +1067,12 @@ class Simulator:
 
             #process each simulation dataset sequence incrementally
             for label, sim, data in runs:
+
+                #extract heading PID gains
+                h_pid = sim.heading_pid
+                #extract speed PID gains
+                s_pid = sim.speed_pid
+
                 #calculate total elapsed duration metrics profiles safely
                 time_metric = sim.time_to_goal(data)
                 
@@ -1059,6 +1085,13 @@ class Simulator:
                 #populate table records matching target columns keys
                 writer.writerow({
                     "Run_Label": label,
+                    "Heading_Kp": h_pid.kp,
+                    "Heading_Ki": h_pid.ki,
+                    "Heading_Kd": h_pid.kd,
+
+                    "Speed_Kp": s_pid.kp,
+                    "Speed_Ki": s_pid.ki,
+                    "Speed_Kd": s_pid.kd,
                     "Reached_Goal": data["reached_goal"],
                     "Total_Time_Seconds": time_metric,
                     "Path_Length_Meters": round(distance_metric, 4),
