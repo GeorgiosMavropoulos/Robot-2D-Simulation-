@@ -44,7 +44,7 @@ def _run_sim_and_plot_results(heading_gains_list:tuple[list])->tuple[list]:
     """
     runs = []
     for label, heading_gains, speed_gains in heading_gains_list:
-    
+            
             #create heading and speed pid objects inside the loop
             heading_pid = PID(*heading_gains, output_limits=(-2.0, 2.0))
             speed_pid = PID(*speed_gains, output_limits=(0.0, 1.0))
@@ -66,10 +66,11 @@ def _run_sim_and_plot_results(heading_gains_list:tuple[list])->tuple[list]:
     )
 
     print(header)
-    print("-" * len(header))
-
+    
+   
     #print values
     for label, sim, data in runs:
+        
         m = sim.metrics(data)
 
         time_str = f"{m['time']:.1f}" if isinstance(m["time"], float) else "-"
@@ -89,11 +90,11 @@ def _run_sim_and_plot_results(heading_gains_list:tuple[list])->tuple[list]:
             f"{m['cte_max']:<10.3f}"
         )
 
-        #export CSV and comparison plot
-        sim.export_metrics_to_csv(runs)
-        sim.plot_comparison(runs)
+    #export CSV and comparison plot
+    sim.export_metrics_to_csv(runs)
+    sim.plot_comparison(runs)
 
-        return runs
+    return runs
 
 def main():
 
