@@ -19,7 +19,29 @@ from robot_pid.pid import PID
 
 
 
-def run_sim_and_plot_results(heading_gains_list):
+def run_sim_and_plot_results(heading_gains_list:tuple[list])->tuple[list]:
+
+ """
+ Executes simulation runs for multiple PID gain configurations and evaluates performance.
+
+ This function iterates through a list of PID gain profiles. For each profile, it 
+ initializes dedicated heading and speed PID controllers, executes a closed-loop 
+ simulation, displays a live animation, prints a cumulative performance metrics table 
+ to the terminal, and exports comparison plots and CSV logs.
+
+ Args:
+     heading_gains_list (list of tuples): A list where each element is a tuple 
+         containing:
+         - label (str): Unique identifier for the simulation run (e.g., 'tuned').
+         - heading_gains (tuple): Proportional, Integral, and Derivative gains 
+           (Kp, Ki, Kd) for the heading PID controller.
+         - speed_gains (tuple): Proportional, Integral, and Derivative gains 
+           (Kp, Ki, Kd) for the speed PID controller.
+
+ Returns:
+     list of tuples: A list of recorded simulation runs, where each tuple contains 
+         `(label, sim_instance, simulation_data)`.
+ """
  runs = []
  for label, heading_gains, speed_gains in heading_gains_list:
  
@@ -60,7 +82,8 @@ def main():
     simulation, prints reached/metrics, and opens the pygame animation. Close the
     window (or press ESC) to start the next gain set.
     Inside root you will find the plot pictures along with a csv file which contain the metrics. 
-    You can also watch the metrics print on terminal after each run. Be aware that upon saving each csv file and plot the previous one are being overwritten.
+    You can also watch the metrics print on terminal after each run. 
+    Be aware that upon saving each csv file and plot the previous one are being overwritten.
     """
    
     #run the three gain sets
@@ -71,7 +94,8 @@ def main():
                           ("tuned", (7.0, 0.01, 0.4), (0.03, 0.01, 2.1))]
 
     
-    
+    #delegate the simulation execution, metrics tracking, 
+    #plotting, and CSV exporting to the run_sim_and_plot_results function
     runs = run_sim_and_plot_results(heading_gains_list)
     return runs
 
