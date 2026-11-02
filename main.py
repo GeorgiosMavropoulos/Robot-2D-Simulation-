@@ -17,6 +17,39 @@ Then ->  Run from the project root: python main.py
 from robot_pid.simulator import Simulator
 from robot_pid.pid import PID
 
+
+
+def run_sim_and_plot_results(heading_gains_list):
+ runs = []
+ for label, heading_gains, speed_gains in heading_gains_list:
+ 
+         #create heading and speed pid objects inside the loop
+         heading_pid = PID(*heading_gains, output_limits=(-2.0, 2.0))
+         speed_pid = PID(*speed_gains, output_limits=(0.0, 1.0))
+         sim = Simulator(heading_pid, speed_pid, dt=0.1, threshold=0.1, t_max=60.0)
+         data = sim.run_simulation()
+         
+         sim.animate(data, fps=60)  #close the window (or ESC) to go to the next one
+         runs.append((label, sim, data))
+ 
+ 
+         #print the results table
+         header = (f"{'Run':<8}{'Reached':<9}{'Time [s]':<10}"
+                    f"{'Path [m]':<10}{'CTE mean':<10}{'CTE max':<10}")
+         print(header)
+         print("-" * len(header))
+         for label, sim, data in runs:
+                m = sim.metrics(data)
+                time_str = f"{m['time']:.1f}" if isinstance(m["time"], float) else "-"
+                print(f"{label:<8}{str(data['reached_goal']):<9}{time_str:<10}"
+                    f"{m['path_length']:<10.2f}{m['cte_mean']:<10.3f}{m['cte_max']:<10.3f}")
+
+         #export CSV and comparison plot
+         sim.export_metrics_to_csv(runs)
+         sim.plot_comparison(runs)
+
+ return runs
+
 def main():
 
     """
@@ -33,35 +66,16 @@ def main():
     #run the three gain sets
     heading_gains_list = [("under", (12.0, 0.01, 0.02), (0.4, 0.1, 0.1)),
                           ("over", (4.0, 0.01, 1.5), (0.03, 0.01, 2.1)),
+      
+      
                           ("tuned", (7.0, 0.01, 0.4), (0.03, 0.01, 2.1))]
 
-    runs = []
-    for label, heading_gains, speed_gains in heading_gains_list:
+    
+    
+    runs = run_sim_and_plot_results(heading_gains_list)
+    return runs
 
-        #create heading and speed pid objects inside the loop
-        heading_pid = PID(*heading_gains, output_limits=(-2.0, 2.0))
-        speed_pid = PID(*speed_gains, output_limits=(0.0, 1.0))
-        sim = Simulator(heading_pid, speed_pid, dt=0.1, threshold=0.1, t_max=60.0)
-        data = sim.run_simulation()
-        
-        sim.animate(data, fps=60)  #close the window (or ESC) to go to the next one
-        runs.append((label, sim, data))
-
-
-    #print the results table
-    header = (f"{'Run':<8}{'Reached':<9}{'Time [s]':<10}"
-              f"{'Path [m]':<10}{'CTE mean':<10}{'CTE max':<10}")
-    print(header)
-    print("-" * len(header))
-    for label, sim, data in runs:
-        m = sim.metrics(data)
-        time_str = f"{m['time']:.1f}" if isinstance(m["time"], float) else "-"
-        print(f"{label:<8}{str(data['reached_goal']):<9}{time_str:<10}"
-              f"{m['path_length']:<10.2f}{m['cte_mean']:<10.3f}{m['cte_max']:<10.3f}")
-
-    #export CSV and comparison plot
-    sim.export_metrics_to_csv(runs)
-    sim.plot_comparison(runs)
+  
 
    
 
