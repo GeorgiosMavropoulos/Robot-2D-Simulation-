@@ -69,7 +69,7 @@ class AStarPlanner:
         
     
     @staticmethod
-    def _validate_point(point: Any, name: str) -> None:
+    def _validate_point(point, name) -> None:
         """Validates that a coordinate point is a tuple of two finite integers.
 
         Args:
