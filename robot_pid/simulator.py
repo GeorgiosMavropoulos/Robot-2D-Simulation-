@@ -1091,7 +1091,7 @@ class Simulator:
                     "Speed_Ki": s_pid.ki,
                     "Speed_Kd": s_pid.kd,
                     "Reached_Goal": data["reached_goal"],
-                    "Total_Time_Seconds": round(time_metric, 1) if isinstance(time_metric, float) else time_metric #round time value
+                    "Total_Time_Seconds": round(time_metric, 1) if isinstance(time_metric, float) else time_metric, #round time value
                     "Path_Length_Meters": round(distance_metric, 4),
                     "Mean_CTE_Meters": round(mean_cte, 4),
                     "Max_CTE_Meters": round(max_cte, 4)
