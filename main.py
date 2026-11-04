@@ -60,7 +60,7 @@ def _run_sim_and_plot_results(heading_gains_list:tuple[list])->tuple[list]:
     header = (
         f"{'Run':<8}"
         f"{'H_Kp':<8}{'H_Ki':<8}{'H_Kd':<8}"
-        f"{'S_Kp':<8}{'S_Ki':<8}{'S_Kd':<8}"
+        
         f"{'Reached':<9}{'Time [s]':<10}"
         f"{'Path [m]':<10}{'CTE mean':<10}{'CTE max':<10}"
     )
@@ -80,9 +80,6 @@ def _run_sim_and_plot_results(heading_gains_list:tuple[list])->tuple[list]:
             f"{sim.heading_pid.kp:<8.2f}"
             f"{sim.heading_pid.ki:<8.2f}"
             f"{sim.heading_pid.kd:<8.2f}"
-            f"{sim.speed_pid.kp:<8.2f}"
-            f"{sim.speed_pid.ki:<8.2f}"
-            f"{sim.speed_pid.kd:<8.2f}"
             f"{str(data['reached_goal']):<9}"
             f"{time_str:<10}"
             f"{m['path_length']:<10.2f}"
@@ -112,7 +109,7 @@ def main():
    
     #run the three gain sets 
                                     #heading             #speed
-    heading_gains_list = [("under", (12.0, 0.01, 0.02), (0.4, 0.1, 0.1)),
+    heading_gains_list = [ ("under", (1.15, 0.02, 0.01), (0.03, 0.01, 2.1)),
                           ("over", (4.0, 0.01, 1.5), (0.03, 0.01, 2.1)),
       
       

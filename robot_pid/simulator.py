@@ -913,15 +913,14 @@ class Simulator:
 
             #extract heading and speed controller gain parameters
             h_pid = sim.heading_pid
-            s_pid = sim.speed_pid
+            
 
             #compile controller configuration into figure title
             title_text = (
                 f"{label} - Trajectory Comparison\n"
                 f"Heading PID (Kp:{h_pid.kp:.2f}, "
                 f"Ki:{h_pid.ki:.2f}, Kd:{h_pid.kd:.2f})\n"
-                f"Speed PID (Kp:{s_pid.kp:.2f}, "
-                f"Ki:{s_pid.ki:.2f}, Kd:{s_pid.kd:.2f})"
+                
             )
 
             #apply axis labels, geometric scaling, and grid properties
@@ -1045,10 +1044,6 @@ class Simulator:
                 "Heading_Kp",
                 "Heading_Ki",
                 "Heading_Kd",
-
-                "Speed_Kp",
-                "Speed_Ki",
-                "Speed_Kd",
                 
                 "Reached_Goal", 
                 "Total_Time_Seconds", 
@@ -1068,8 +1063,7 @@ class Simulator:
 
                 #extract heading PID gains
                 h_pid = sim.heading_pid
-                #extract speed PID gains
-                s_pid = sim.speed_pid
+              
 
                 #calculate total elapsed duration metrics profiles safely
                 time_metric = sim.time_to_goal(data)
@@ -1082,20 +1076,17 @@ class Simulator:
 
                 #populate table records matching target columns keys
                 writer.writerow({
-                    "Run_Label": label,
-                    "Heading_Kp": h_pid.kp,
-                    "Heading_Ki": h_pid.ki,
-                    "Heading_Kd": h_pid.kd,
+                "Run_Label": label,
+                "Heading_Kp": h_pid.kp,
+                "Heading_Ki": h_pid.ki,
+                "Heading_Kd": h_pid.kd,
 
-                    "Speed_Kp": s_pid.kp,
-                    "Speed_Ki": s_pid.ki,
-                    "Speed_Kd": s_pid.kd,
-                    "Reached_Goal": data["reached_goal"],
-                    "Total_Time_Seconds": round(time_metric, 1) if isinstance(time_metric, float) else time_metric, #round time value
-                    "Path_Length_Meters": round(distance_metric, 4),
-                    "Mean_CTE_Meters": round(mean_cte, 4),
-                    "Max_CTE_Meters": round(max_cte, 4)
-                })
+                "Reached_Goal": data["reached_goal"],
+                "Total_Time_Seconds": round(time_metric, 1) if isinstance(time_metric, float) else time_metric,
+                "Path_Length_Meters": round(distance_metric, 4),
+                "Mean_CTE_Meters": round(mean_cte, 4),
+                "Max_CTE_Meters": round(max_cte, 4)
+            })
 
         print(f"Performance metrics tabular datasheet successfully written to: '{filename}'")
 
